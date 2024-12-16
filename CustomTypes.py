@@ -5,21 +5,23 @@ import math
 StockSymbol = NewType('StockSymbol', str)
 StockDataSubset = Tuple[Literal['Open', 'High', 'Low', 'Close', 'Volume', 'Dividends', 'Stock Splits']]
 
+Days = NewType('Days', int)
+
 
 class Portfolio(tuple):
     def __new__(cls, *args):
-        obj = super().__new__(cls, args)
+        obj = super().__new__(cls, sorted(args))
 
         obj._weights = [1/len(obj) for _ in range(len(obj))]
 
         obj._tickers = yf.Tickers(' '.join(obj))
 
         obj._results = {
-            'weights': {super().__getitem__(i): -1 for i in range(len(obj))},
-            'expected_returns': {super().__getitem__(i): -1 for i in range(len(obj))},
-            'volatility': {super().__getitem__(i): -1 for i in range(len(obj))},
-            'beta': {super().__getitem__(i): -1 for i in range(len(obj))},
-            'sharpe_ratio': {super().__getitem__(i): -1 for i in range(len(obj))}
+            'weights': {obj[i]: -1 for i in range(len(obj))},
+            'expected_returns': {obj[i]: -1 for i in range(len(obj))},
+            'volatility': {obj[i]: -1 for i in range(len(obj))},
+            'beta': {obj[i]: -1 for i in range(len(obj))},
+            'sharpe_ratio': {obj[i]: -1 for i in range(len(obj))}
         }
 
         return obj
@@ -38,7 +40,7 @@ class Portfolio(tuple):
         if isinstance(key, int):
             return super().__getitem__(key)
 
-        elif isinstance(key, StockSymbol):
+        elif isinstance(key, StockSymbol.__supertype__):
             return self.stock_results(key)
 
     @property

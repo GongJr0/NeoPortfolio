@@ -1,11 +1,14 @@
 import yfinance as yf
 import pandas as pd
 import numpy as np
-import matplotlib.pyplot as plt
+from datetime import datetime, timedelta
 from scipy import optimize
+import matplotlib.pyplot as plt
 import plotly
 
-from CustomTypes import StockSymbol, Portfolio
+import warnings
+
+from CustomTypes import StockSymbol, Portfolio, Days
 
 
 class Markowitz:
@@ -21,8 +24,11 @@ class Markowitz:
         self.cov_matrix = self._covariance_matrix()
         self.beta = self._beta()
 
-    def _construct_data(self, horizon: int, lookback: int):
-        data = self.portfolio.tickers.history(period=f"{lookback}d", interval='1d')
+    def _construct_data(self, horizon: Days, lookback: Days):
+        now = datetime.now()
+        start = now - timedelta(days=lookback)
+
+        data = self.portfolio.tickers.history(start=start, end=now, interval='1d')
         data = data['Close']
 
         periodic_return = (data - data.shift(horizon)) / data.shift(horizon)
@@ -35,8 +41,11 @@ class Markowitz:
 
         return data, periodic_return, expected_returns
 
-    def _construct_market_data(self, horizon: int, lookback: int):
-        data = self.market.history(period=f"{lookback}d", interval='1d')
+    def _construct_market_data(self, horizon: Days, lookback: Days):
+        now = datetime.now()
+        start = now - timedelta(days=lookback)
+
+        data = self.market.history(start=start, end=now, interval='1d')
         data = data['Close']
 
         periodic_return = (data - data.shift(horizon)) / data.shift(horizon)
@@ -60,13 +69,18 @@ class Markowitz:
         beta = np.array(self.beta)
 
         def _objective_no_beta(weights):
-            return weights @ self.cov_matrix @ weights
+            portfolio_variance = weights.T @ self.cov_matrix @ weights
+            return_deviation = (mu @ weights - target_return) ** 2
+            return portfolio_variance + return_deviation
 
         def _objective_with_beta(weights):
-            portfolio_variance = weights @ self.cov_matrix @ weights
-            beta_penalty = sum((weights * beta))
+            portfolio_variance = weights.T @ self.cov_matrix @ weights
+            portfolio_beta = weights @ beta
+            market_beta = 1  # cov(market, market) / var(market) = 1
+            beta_penalty = (portfolio_beta - market_beta) ** 2
+            return_penalty = (mu @ weights - target_return) ** 2
 
-            return portfolio_variance + 0.1 * beta_penalty
+            return portfolio_variance + beta_penalty + return_penalty
 
         if with_beta:
             objective = _objective_with_beta
@@ -75,12 +89,15 @@ class Markowitz:
 
         n = len(self.portfolio)
         initial_guess = np.array([1/n for _ in range(n)])
-        constraints = np.array([{'type': 'eq', 'fun': lambda x: np.sum(x) - 1},
-                       {'type': 'eq', 'fun': lambda x: np.sum(x * mu) - target_return}])
+        constraints = [{'type': 'eq', 'fun': lambda x: np.sum(x) - 1},
+                       {'type': 'eq', 'fun': lambda x: np.sum(x * mu) - target_return}]
 
-        opt = optimize.minimize(objective, initial_guess, constraints=constraints, bounds=[bounds for _ in range(n)])
+        opt = optimize.minimize(objective, initial_guess, constraints=constraints, bounds=[bounds for _ in range(n)])  # type: ignore
 
         for i in range(len(opt.x)):
             self.portfolio.results['weights'][self.portfolio[i]] = opt.x[i]
 
-        return opt.x
+        if opt.success:
+            return self.periodic_return.columns, opt
+        else:
+            warnings.warn(f"Optimization for the portfolio {self.portfolio} did not converge.", category=UserWarning)
