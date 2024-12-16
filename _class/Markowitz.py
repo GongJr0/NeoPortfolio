@@ -9,22 +9,38 @@ import plotly
 import warnings
 
 from CustomTypes import StockSymbol, Portfolio, Days
-
+from typing import cast
 
 class Markowitz:
 
-    def __init__(self, portfolio: Portfolio, market: StockSymbol, horizon: int = 21, lookback: int = 252, rf_rate: float = 0.05717):
+    def __init__(self, portfolio: Portfolio,
+                 market: StockSymbol,
+                 horizon: Days = 21,
+                 lookback: Days = 252,
+                 rf_rate: float = 0.05717):
+
+        # Portfolio, market, and environment definition
         self.portfolio: Portfolio = portfolio
         self.market: yf.Ticker = yf.Ticker(market)
         self.rf = rf_rate
 
-        self.raw_close, self.periodic_return, self.expected_returns = self._construct_data(horizon=horizon, lookback=lookback)
-        self.market_returns = self._construct_market_data(horizon=horizon, lookback=lookback)
+        # Portfolio data construction
+        self.raw_close, self.periodic_return, self.expected_returns, self.volatility = self._construct_data(horizon=horizon, lookback=lookback)
 
+        # Market data construction
+        self.market_returns, self.market_volatility = self._construct_market_data(horizon=horizon, lookback=lookback)
+
+        # Portfolio statistics
         self.cov_matrix = self._covariance_matrix()
         self.beta = self._beta()
 
-    def _construct_data(self, horizon: Days, lookback: Days):
+    def _construct_data(self, horizon: Days, lookback: Days) -> tuple[pd.DataFrame, pd.DataFrame, pd.Series, pd.Series]:
+        """
+        Get and process historical data for the portfolio stocks.
+        :param horizon: investment horizon in days
+        :param lookback: number of days to look back
+        :return: historical price data, periodic returns (per horizon), expected returns, and volatility
+        """
         now = datetime.now()
         start = now - timedelta(days=lookback)
 
@@ -35,13 +51,22 @@ class Markowitz:
         periodic_return = periodic_return.dropna()
 
         expected_returns = periodic_return.ewm(span=horizon).mean().iloc[-1]
+        volatility = periodic_return.std()
 
         for i in expected_returns.index:
             self.portfolio.results['expected_returns'][i] = expected_returns[i]
+            self.portfolio.results['volatility'][i] = volatility[i]
+            self.portfolio.results['sharpe_ratio'][i] = (expected_returns[i] - self.rf) / volatility[i]
 
-        return data, periodic_return, expected_returns
+        return data, periodic_return, expected_returns, volatility
 
-    def _construct_market_data(self, horizon: Days, lookback: Days):
+    def _construct_market_data(self, horizon: Days, lookback: Days) -> tuple[pd.Series, pd.Series]:
+        """
+        Get and process historical data for the market.
+        :param horizon: investment horizon in days
+        :param lookback: number of days to look back
+        :return: periodic returns (per horizon) and volatility
+        """
         now = datetime.now()
         start = now - timedelta(days=lookback)
 
@@ -51,20 +76,41 @@ class Markowitz:
         periodic_return = (data - data.shift(horizon)) / data.shift(horizon)
         periodic_return = periodic_return.dropna()
 
-        return periodic_return
+        volatility = periodic_return.std()
 
-    def _covariance_matrix(self):
+        return periodic_return, volatility
+
+    def _covariance_matrix(self) -> pd.DataFrame:
+        """
+        Calculate the covariance matrix for the portfolio.
+        :return: covariance matrix
+        """
         return self.periodic_return.cov()
 
-    def _beta(self):
+    def _beta(self) -> list[np.float64]:
+        """
+        Calculate the beta for each stock in the portfolio.
+        :return: list of betas
+        """
         betas = []
         for stock in self.periodic_return.columns:
-            b = np.cov(self.periodic_return[stock], self.market_returns)[0][1] / np.var(self.market_returns, ddof=1)
+            b: np.float64 = np.cov(self.periodic_return[stock], self.market_returns)[0][1] / np.var(self.market_returns, ddof=1) # type: ignore
             self.portfolio.results['beta'][stock] = b
             betas.append(b)
         return betas
 
-    def optimize(self, target_return: float, *, bounds: tuple[float, float] = (0.0, 1.0), with_beta: bool = True):
+    def optimize(self, target_return: float, *,
+                 bounds: tuple[float, float] = (0.0, 1.0),
+                 additional_constraints: list[dict],
+                 with_beta: bool = True) -> tuple[dict[StockSymbol, float], optimize.OptimizeResult]:
+        """
+        Optimize the portfolio weights to achieve a target return.
+        :param target_return: target return
+        :param bounds: upper and lower bounds for the weights
+        :param constraints: additional constraints
+        :param with_beta: include beta in the optimization
+        :return: optimized weights and optimization results
+        """
         mu = np.array(self.expected_returns.values)
         beta = np.array(self.beta)
 
@@ -90,14 +136,15 @@ class Markowitz:
         n = len(self.portfolio)
         initial_guess = np.array([1/n for _ in range(n)])
         constraints = [{'type': 'eq', 'fun': lambda x: np.sum(x) - 1},
-                       {'type': 'eq', 'fun': lambda x: np.sum(x * mu) - target_return}]
+                       {'type': 'eq', 'fun': lambda x: np.sum(x * mu) - target_return},
+                       *additional_constraints]
 
         opt = optimize.minimize(objective, initial_guess, constraints=constraints, bounds=[bounds for _ in range(n)])  # type: ignore
 
         for i in range(len(opt.x)):
-            self.portfolio.results['weights'][self.portfolio[i]] = opt.x[i]
+            self.portfolio.results['weights'][self.portfolio[i]] = opt.x[i].round(4)
 
         if opt.success:
-            return self.periodic_return.columns, opt
+            return {self.portfolio[i]: opt.x[i].round(4) for i in range(len(opt.x))}, opt
         else:
             warnings.warn(f"Optimization for the portfolio {self.portfolio} did not converge.", category=UserWarning)
