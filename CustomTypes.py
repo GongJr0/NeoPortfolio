@@ -24,6 +24,12 @@ class Portfolio(tuple):
             'sharpe_ratio': {obj[i]: -1 for i in range(len(obj))}
         }
 
+        obj.optimum_portfolio_info = {
+            'target_return': None,
+            'weights': None,
+            'risk_per_return': None,
+        }
+
         return obj
 
     def stock_results(self, stock: StockSymbol):

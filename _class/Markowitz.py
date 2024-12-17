@@ -53,10 +53,11 @@ class Markowitz:
         expected_returns = periodic_return.ewm(span=horizon).mean().iloc[-1]
         volatility = periodic_return.std()
 
+
         for i in expected_returns.index:
-            self.portfolio.results['expected_returns'][i] = expected_returns[i]
-            self.portfolio.results['volatility'][i] = volatility[i]
-            self.portfolio.results['sharpe_ratio'][i] = (expected_returns[i] - self.rf) / volatility[i]
+            self.portfolio.results['expected_returns'][i] = expected_returns[i].round(4)
+            self.portfolio.results['volatility'][i] = volatility[i].round(4)
+            self.portfolio.results['sharpe_ratio'][i] = ((expected_returns[i] - self.rf) / volatility[i]).round(4)
 
         return data, periodic_return, expected_returns, volatility
 
@@ -95,20 +96,22 @@ class Markowitz:
         betas = []
         for stock in self.periodic_return.columns:
             b: np.float64 = np.cov(self.periodic_return[stock], self.market_returns)[0][1] / np.var(self.market_returns, ddof=1) # type: ignore
-            self.portfolio.results['beta'][stock] = b
+            self.portfolio.results['beta'][stock] = b.round(4)
             betas.append(b)
         return betas
 
     def optimize(self, target_return: float, *,
                  bounds: tuple[float, float] = (0.0, 1.0),
                  additional_constraints: tuple[dict] = (),
-                 with_beta: bool = True) -> tuple[dict[StockSymbol, float], optimize.OptimizeResult]:
+                 with_beta: bool = True,
+                 record: bool = True) -> tuple[dict[StockSymbol, float], optimize.OptimizeResult]:
         """
         Optimize the portfolio weights to achieve a target return.
         :param target_return: target return
         :param bounds: upper and lower bounds for the weights
         :param additional_constraints: additional constraints
         :param with_beta: include beta in the optimization
+        :param record: record the optimized weights and results (disabled when optimizing for efficient frontier)
         :return: optimized weights and optimization results
         """
         mu = np.array(self.expected_returns.values)
@@ -141,13 +144,25 @@ class Markowitz:
 
         opt = optimize.minimize(objective, initial_guess, constraints=constraints, bounds=[bounds for _ in range(n)])  # type: ignore
 
-        for i in range(len(opt.x)):
-            self.portfolio.results['weights'][self.portfolio[i]] = opt.x[i].round(4)
-
         if opt.success:
+
+            if record:
+                for i in range(len(opt.x)):
+                    self.portfolio.results['weights'][self.portfolio[i]] = opt.x[i].round(4)
+
+                self.portfolio.optimum_portfolio_info['target_return'] = target_return
+                self.portfolio.optimum_portfolio_info['weights'] = self.portfolio.results['weights']
+
+                coef_of_variance = [(np.std(self.periodic_return[stock]) / np.mean(self.periodic_return[stock])).round(4)
+                                    for stock in self.portfolio]
+
+                self.portfolio.optimum_portfolio_info['risk_per_return'] = {self.portfolio[i]: coef_of_variance[i] for i in range(n)}
+
             return {self.portfolio[i]: opt.x[i].round(4) for i in range(len(opt.x))}, opt
+
         else:
             warnings.warn(f"Optimization for the portfolio {self.portfolio} did not converge.", category=UserWarning)
+            return {self.portfolio[i]: 1/n for i in range(n)}, opt
 
     def efficient_frontier(self, n: int = 1000, *, save: bool = False) -> None:
         """
@@ -166,7 +181,7 @@ class Markowitz:
         weights_record_beta = []
         for i in range(n):
             target_return = mus[i]
-            weights, _ = self.optimize(target_return)
+            weights, _ = self.optimize(target_return, record=False)
             weights = np.array(list(weights.values()))
             weights_record_beta.append(weights)
             returns, volatility = weights @ mu, np.sqrt(weights @ self.cov_matrix @ weights)
@@ -175,6 +190,7 @@ class Markowitz:
         scatter1 = ax[0].scatter(
             sigmas_with_beta, mus, c=(mus - self.rf) / sigmas_with_beta, cmap='viridis'
         )
+
         ax[0].set_title("Efficient Frontier (With Beta)")
         ax[0].set_xlabel("Volatility")
         ax[0].set_ylabel("Return")
@@ -184,7 +200,7 @@ class Markowitz:
         weights_record_no_beta = []
         for i in range(n):
             target_return = mus[i]
-            weights, _ = self.optimize(target_return, with_beta=False)
+            weights, _ = self.optimize(target_return, with_beta=False, record=False)
             weights = np.array(list(weights.values()))
             weights_record_no_beta.append(weights)
             returns, volatility = weights @ mu, np.sqrt(weights @ self.cov_matrix @ weights)
