@@ -22,6 +22,9 @@ from typing import Optional
 from CustomTypes import Days
 
 class Sentiment:
+    """
+    FinBERT Sentiment Analysis for Financial News.
+    """
     def __init__(self):
         load_dotenv('_class/api.env')
 
@@ -33,6 +36,10 @@ class Sentiment:
 
     @staticmethod
     def get_cache():
+        """
+        If
+        :return:
+        """
         session = CachedSession('URL_cache', backend='sqlite', expire_after=None)
         return session
 
@@ -52,24 +59,6 @@ class Sentiment:
         desc = [article['title'] + " " + article['description'] for article in articles['articles']]
         return desc
 
-    # def get_page_contents(self, url: str, elements: list = r'^p$|^h[1-6]$', session: Optional[CachedSession] = None) -> str:
-    #     if not session:
-    #         session = self.get_cache()
-    #
-    #     response = session.get(url)
-    #     if response.status_code != 200:
-    #         warnings.warn(f"Failed to get page contents from {url}", UserWarning)
-    #         return ""
-    #
-    #
-    #     soup = BeautifulSoup(response.text, 'html.parser')
-    #     page_contents = "".join([element.get_text() for element in soup.find_all(elements)])
-    #
-    #     if not page_contents:
-    #         warnings.warn(f"No text found in {url}", UserWarning)
-    #         return ""
-    #
-    #     return page_contents
 
     def get_score_all(self, text: str) -> dict:
         inputs = self.tokenizer(text, return_tensors='pt', padding=True, truncation=True)

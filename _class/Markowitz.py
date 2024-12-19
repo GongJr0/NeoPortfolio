@@ -63,7 +63,7 @@ class Markowitz:
 
         # Adjust return with sentiment analysis
         for stock in self.portfolio:
-            sentiment_score = self.sentiment.get_sentiment(stock, n=10, lookback=horizon)
+            sentiment_score = self.sentiment.get_sentiment(f"{stock} Stock", n=10, lookback=horizon)
             expected_returns[stock] = expected_returns[stock] * (1 + 0.5 * (sentiment_score - 0.5))  # 50% weight on sentiment
 
 
