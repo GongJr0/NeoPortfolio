@@ -11,6 +11,8 @@ import warnings
 from CustomTypes import StockSymbol, Portfolio, Days
 from typing import cast, Optional
 
+from _class.Sentiment import Sentiment
+
 class Markowitz:
 
     def __init__(self, portfolio: Portfolio,
@@ -18,6 +20,9 @@ class Markowitz:
                  horizon: Days = 21,
                  lookback: Days = 252,
                  rf_rate: float = 0.05717):
+
+        # Sentiment Analysis Module
+        self.sentiment = Sentiment()
 
         # Portfolio, market, and environment definition
         self.portfolio: Portfolio = portfolio
@@ -44,14 +49,22 @@ class Markowitz:
         now = datetime.now()
         start = now - timedelta(days=lookback)
 
+        # Get historical data
         data = self.portfolio.tickers.history(start=start, end=now, interval='1d')
         data = data['Close']
 
+        # Calculate periodic returns
         periodic_return = (data - data.shift(horizon)) / data.shift(horizon)
         periodic_return = periodic_return.dropna()
 
+        # Calculate expected returns and volatility
         expected_returns = periodic_return.ewm(span=horizon).mean().iloc[-1]
         volatility = periodic_return.std()
+
+        # Adjust return with sentiment analysis
+        for stock in self.portfolio:
+            sentiment_score = self.sentiment.get_sentiment(stock, n=10, lookback=horizon)
+            expected_returns[stock] = expected_returns[stock] * (1 + 0.5 * (sentiment_score - 0.5))  # 50% weight on sentiment
 
 
         for i in expected_returns.index:
@@ -117,12 +130,14 @@ class Markowitz:
         mu = np.array(self.expected_returns.values)
         beta = np.array(self.beta)
 
-        def _objective_no_beta(weights):
+        def _objective_no_beta(weights) -> float:
             portfolio_variance = weights.T @ self.cov_matrix @ weights
             return_deviation = (mu @ weights - target_return) ** 2
+
+
             return portfolio_variance + return_deviation
 
-        def _objective_with_beta(weights):
+        def _objective_with_beta(weights) -> float:
             portfolio_variance = weights.T @ self.cov_matrix @ weights
             portfolio_beta = weights @ beta
             market_beta = 1  # cov(market, market) / var(market) = 1
