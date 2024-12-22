@@ -169,6 +169,7 @@ class Markowitz:
             constraints = [{'type': 'eq', 'fun': lambda x: np.sum(x) - 1},
                            {'type': 'eq', 'fun': lambda x: mu @ x - target},
                            *additional_constraints]
+
         elif target_input == 'volatility':
             objective = _objective_with_beta_volatility if with_beta else _objective_no_beta_volatility
             constraints = [{'type': 'eq', 'fun': lambda x: np.sum(x) - 1},
@@ -178,7 +179,10 @@ class Markowitz:
         n = len(self.portfolio)
         initial_guess = np.array([1/n for _ in range(n)])
 
-        opt = optimize.minimize(objective, initial_guess, constraints=constraints, bounds=[bounds for _ in range(n)])  # type: ignore
+        opt = optimize.minimize(objective, initial_guess,
+                                constraints=constraints,
+                                bounds=[bounds for _ in range(n)],
+                                method='SLSQP')  # type: ignore
 
         if opt.success:
 
@@ -247,19 +251,28 @@ class Markowitz:
             ax[1].grid(True)
 
         elif target_input == 'volatility':
-            volatilities = np.linspace(0.01, np.sqrt(self.cov_matrix.max()), n)
-            returns_with_beta = np.zeros(n)
-            returns_no_beta = np.zeros(n)
+            max_volatility = np.max(np.sqrt(np.diag(self.cov_matrix)))  # Max is simply the asset with the highest volatility
+
+            # Solve for the minimum volatility
+            inv_cov_matrix = np.linalg.inv(self.cov_matrix)
+            ones = np.ones(len(mu))
+            w_min_vol = (inv_cov_matrix @ ones) / (ones.T @ inv_cov_matrix @ ones)
+            min_volatility = np.sqrt(w_min_vol.T @ self.cov_matrix @ w_min_vol)
+
+            # Create range of volatilities
+            sigmas = np.linspace(min_volatility, max_volatility, n)
+            mus_with_beta = np.zeros(n)
+            mus_no_beta = np.zeros(n)
 
             # Efficient Frontier (With Beta)
-            for i, target_volatility in enumerate(volatilities):
+            for i, target_volatility in enumerate(sigmas):
                 weights, _ = self.optimize(target_volatility, target_input=target_input, record=False)
                 weights = np.array(list(weights.values()))
-                returns = weights @ mu
-                returns_with_beta[i] = returns
+                target_return = mu @ weights
+                mus_with_beta[i] = target_return
 
             scatter1 = ax[0].scatter(
-                volatilities, returns_with_beta, c=(returns_with_beta - self.rf) / volatilities, cmap='viridis'
+                sigmas, mus_with_beta, c=(mus_with_beta - self.rf) / sigmas, cmap='viridis'
             )
             ax[0].set_title("Efficient Frontier (With Beta)")
             ax[0].set_xlabel("Volatility")
@@ -267,26 +280,24 @@ class Markowitz:
             ax[0].grid(True)
 
             # Efficient Frontier (No Beta)
-            for i, target_volatility in enumerate(volatilities):
+            for i, target_volatility in enumerate(sigmas):
                 weights, _ = self.optimize(target_volatility, with_beta=False, record=False)
                 weights = np.array(list(weights.values()))
-                returns = weights @ mu
-                returns_no_beta[i] = returns
+                target_return = mu @ weights
+                mus_no_beta[i] = target_return
 
             scatter2 = ax[1].scatter(
-                volatilities, returns_no_beta, c=(returns_no_beta - self.rf) / volatilities, cmap='viridis'
+                sigmas, mus_no_beta, c=(mus_no_beta - self.rf) / sigmas, cmap='viridis'
             )
             ax[1].set_title("Efficient Frontier (No Beta)")
             ax[1].set_xlabel("Volatility")
             ax[1].set_ylabel("Return")
             ax[1].grid(True)
 
-        # Add shared colorbar
-        cbar = fig.colorbar(scatter1, ax=ax, orientation='vertical', fraction=0.05, pad=0.04)
-        cbar.set_label("Sharpe Ratio")
+        fig.colorbar(scatter2, ax=ax[1], label='Sharpe Ratio')
 
         if save:
-            plt.savefig("efficient_frontier.png")
-        else:
-            plt.show()
+            plt.savefig(f"{" ".join(self.portfolio)}.png")
+
+        plt.show()
 

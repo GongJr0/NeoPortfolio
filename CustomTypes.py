@@ -70,4 +70,3 @@ class Portfolio(tuple):
     @weights.setter
     def weights(self, value):
         self._weights = value
-
