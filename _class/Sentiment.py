@@ -5,10 +5,9 @@ from dotenv import load_dotenv
 import re
 import warnings
 
+from _class.SentimentCahe import SentimentCache
+
 from newsapi import NewsApiClient
-
-from requests_cache import CachedSession
-
 from bs4 import BeautifulSoup
 
 import numpy as np
@@ -33,18 +32,14 @@ class Sentiment:
 
         self.tokenizer = BertTokenizer.from_pretrained('yiyanghkust/finbert-tone')
         self.model = BertForSequenceClassification.from_pretrained('yiyanghkust/finbert-tone')
+        self.cache = self._init_cache()
 
     @staticmethod
-    def get_cache():
-        """
-        If
-        :return:
-        """
-        session = CachedSession('URL_cache', backend='sqlite', expire_after=None)
-        return session
+    def _init_cache(name: str = 'sentiment.db', exp_after: int = 3600) -> SentimentCache:
+        return SentimentCache(name, exp_after)
 
-
-    def search(self, query: str, *, n: int, lookback: Days) -> list:
+    @staticmethod
+    def search(query: str, *, n: int, lookback: Days) -> list:
         key = os.getenv('API_KEY')
         newsapi = NewsApiClient(api_key=key)
 
@@ -58,7 +53,6 @@ class Sentiment:
 
         desc = [article['title'] + " " + article['description'] for article in articles['articles']]
         return desc
-
 
     def get_score_all(self, text: str) -> dict:
         inputs = self.tokenizer(text, return_tensors='pt', padding=True, truncation=True)
@@ -77,7 +71,14 @@ class Sentiment:
         score = p_val[2] / (p_val[0] + p_val[2]) # \frac{positive}{positive + negative}
         return score
 
-    def get_sentiment(self, query: str, n: int, lookback: Days) -> dict:
+    def get_sentiment(self, query: str, n: int, lookback: Days) -> float:
+        cache_response = self.cache.get(query)
+
+        # Cache hit
+        if cache_response is not None:
+            return cache_response
+
+        # Cache miss
         search_results = self.search(query, n=n, lookback=lookback)
         sentiments = []
 
@@ -85,7 +86,11 @@ class Sentiment:
             score = self.compose_sentiment(desc)
             sentiments.append(score)
 
+        if sentiments == []:
+            return .5  # Neutral if no sentiment found
+
         ewma_sentiment = pd.Series(sentiments).ewm(halflife=2).mean().iloc[-1]
+        self.cache.cache(query, ewma_sentiment)
         return ewma_sentiment
 
 

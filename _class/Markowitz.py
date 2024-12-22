@@ -3,13 +3,14 @@ import pandas as pd
 import numpy as np
 from datetime import datetime, timedelta
 from scipy import optimize
+from scipy.optimize import OptimizeResult
 import matplotlib.pyplot as plt
 import plotly
 
 import warnings
 
 from CustomTypes import StockSymbol, Portfolio, Days
-from typing import cast, Optional
+from typing import cast, Optional, Literal
 
 from _class.Sentiment import Sentiment
 
@@ -26,7 +27,11 @@ class Markowitz:
 
         # Portfolio, market, and environment definition
         self.portfolio: Portfolio = portfolio
+        self.names = {symbol: portfolio.tickers.tickers[symbol].info['shortName'] for symbol in portfolio}
+
         self.market: yf.Ticker = yf.Ticker(market)
+        self.market_name: str = self.market.info['shortName']
+
         self.rf = rf_rate
 
         # Portfolio data construction
@@ -63,9 +68,9 @@ class Markowitz:
 
         # Adjust return with sentiment analysis
         for stock in self.portfolio:
-            sentiment_score = self.sentiment.get_sentiment(f"{stock} Stock", n=10, lookback=horizon)
+            sentiment_score = self.sentiment.get_sentiment(f"{self.names[stock]} Stock", n=10, lookback=horizon)
+            self.portfolio.results['sentiment'][stock] = round(sentiment_score, 4)
             expected_returns[stock] = expected_returns[stock] * (1 + 0.5 * (sentiment_score - 0.5))  # 50% weight on sentiment
-
 
         for i in expected_returns.index:
             self.portfolio.results['expected_returns'][i] = expected_returns[i].round(4)
@@ -113,14 +118,17 @@ class Markowitz:
             betas.append(b)
         return betas
 
-    def optimize(self, target_return: float, *,
+    def optimize(self,
+                 target: float, *,
+                 target_input: Literal['return', 'volatility'] = 'return',
                  bounds: tuple[float, float] = (0.0, 1.0),
                  additional_constraints: tuple[dict] = (),
                  with_beta: bool = True,
-                 record: bool = True) -> tuple[dict[StockSymbol, float], optimize.OptimizeResult]:
+                 record: bool = True) -> tuple[dict[str, float], OptimizeResult]:
         """
         Optimize the portfolio weights to achieve a target return.
-        :param target_return: target return
+        :param target_input: optimization input (return or volatility)
+        :param target: target return
         :param bounds: upper and lower bounds for the weights
         :param additional_constraints: additional constraints
         :param with_beta: include beta in the optimization
@@ -132,8 +140,7 @@ class Markowitz:
 
         def _objective_no_beta(weights) -> float:
             portfolio_variance = weights.T @ self.cov_matrix @ weights
-            return_deviation = (mu @ weights - target_return) ** 2
-
+            return_deviation = (mu @ weights - target) ** 2
 
             return portfolio_variance + return_deviation
 
@@ -142,20 +149,34 @@ class Markowitz:
             portfolio_beta = weights @ beta
             market_beta = 1  # cov(market, market) / var(market) = 1
             beta_penalty = (portfolio_beta - market_beta) ** 2
-            return_penalty = (mu @ weights - target_return) ** 2
+            return_penalty = (mu @ weights - target) ** 2
 
             return portfolio_variance + beta_penalty + return_penalty
 
-        if with_beta:
-            objective = _objective_with_beta
-        else:
-            objective = _objective_no_beta
+        def _objective_no_beta_volatility(weights) -> float:
+            return -(mu @ weights)
+
+        def _objective_with_beta_volatility(weights) -> float:
+            portfolio_return = mu @ weights
+            portfolio_beta = weights @ beta
+            market_beta = 1  # cov(market, market) / var(market) = 1
+            beta_penalty = (portfolio_beta - market_beta) ** 2
+
+            return -(portfolio_return) + beta_penalty
+
+        if target_input == 'return':
+            objective = _objective_with_beta if with_beta else _objective_no_beta
+            constraints = [{'type': 'eq', 'fun': lambda x: np.sum(x) - 1},
+                           {'type': 'eq', 'fun': lambda x: mu @ x - target},
+                           *additional_constraints]
+        elif target_input == 'volatility':
+            objective = _objective_with_beta_volatility if with_beta else _objective_no_beta_volatility
+            constraints = [{'type': 'eq', 'fun': lambda x: np.sum(x) - 1},
+                           {'type': 'eq', 'fun': lambda x: np.sqrt(x.T @ self.cov_matrix @ x) - target},
+                           *additional_constraints]
 
         n = len(self.portfolio)
         initial_guess = np.array([1/n for _ in range(n)])
-        constraints = [{'type': 'eq', 'fun': lambda x: np.sum(x) - 1},
-                       {'type': 'eq', 'fun': lambda x: np.sum(x * mu) - target_return},
-                       *additional_constraints]
 
         opt = optimize.minimize(objective, initial_guess, constraints=constraints, bounds=[bounds for _ in range(n)])  # type: ignore
 
@@ -165,7 +186,7 @@ class Markowitz:
                 for i in range(len(opt.x)):
                     self.portfolio.results['weights'][self.portfolio[i]] = opt.x[i].round(4)
 
-                self.portfolio.optimum_portfolio_info['target_return'] = target_return
+                self.portfolio.optimum_portfolio_info['target_return'] = mu @ opt.x
                 self.portfolio.optimum_portfolio_info['weights'] = self.portfolio.results['weights']
 
                 coef_of_variance = [(np.std(self.periodic_return[stock]) / np.mean(self.periodic_return[stock])).round(4)
@@ -179,55 +200,86 @@ class Markowitz:
             warnings.warn(f"Optimization for the portfolio {self.portfolio} did not converge.", category=UserWarning)
             return {self.portfolio[i]: 1/n for i in range(n)}, opt
 
-    def efficient_frontier(self, n: int = 1000, *, save: bool = False) -> None:
+    def efficient_frontier(self, target_input: Literal['return', 'volatility'], n: int = 1000, *,
+                           save: bool = False) -> None:
         """
         Plot the efficient frontier.
+        :param target_input: optimization input (return or volatility)
         :param n: number of points to plot
         :param save: save the plot
         """
         mu = self.expected_returns.values
-        mus = np.linspace(mu.min(), mu.max(), n)
-        sigmas_with_beta = np.zeros(n)
-        sigmas_no_beta = np.zeros(n)
-
         fig, ax = plt.subplots(1, 2, figsize=(12, 6))
 
-        # Efficient Frontier (With Beta)
-        weights_record_beta = []
-        for i in range(n):
-            target_return = mus[i]
-            weights, _ = self.optimize(target_return, record=False)
-            weights = np.array(list(weights.values()))
-            weights_record_beta.append(weights)
-            returns, volatility = weights @ mu, np.sqrt(weights @ self.cov_matrix @ weights)
-            sigmas_with_beta[i] = volatility
+        if target_input == 'return':
+            mus = np.linspace(mu.min(), mu.max(), n)
+            sigmas_with_beta = np.zeros(n)
+            sigmas_no_beta = np.zeros(n)
 
-        scatter1 = ax[0].scatter(
-            sigmas_with_beta, mus, c=(mus - self.rf) / sigmas_with_beta, cmap='viridis'
-        )
+            # Efficient Frontier (With Beta)
+            for i, target_return in enumerate(mus):
+                weights, _ = self.optimize(target_return, target_input=target_input, record=False)
+                weights = np.array(list(weights.values()))
+                volatility = np.sqrt(weights @ self.cov_matrix @ weights)
+                sigmas_with_beta[i] = volatility
 
-        ax[0].set_title("Efficient Frontier (With Beta)")
-        ax[0].set_xlabel("Volatility")
-        ax[0].set_ylabel("Return")
-        ax[0].grid(True)
+            scatter1 = ax[0].scatter(
+                sigmas_with_beta, mus, c=(mus - self.rf) / sigmas_with_beta, cmap='viridis'
+            )
+            ax[0].set_title("Efficient Frontier (With Beta)")
+            ax[0].set_xlabel("Volatility")
+            ax[0].set_ylabel("Return")
+            ax[0].grid(True)
 
-        # Efficient Frontier (No Beta)
-        weights_record_no_beta = []
-        for i in range(n):
-            target_return = mus[i]
-            weights, _ = self.optimize(target_return, with_beta=False, record=False)
-            weights = np.array(list(weights.values()))
-            weights_record_no_beta.append(weights)
-            returns, volatility = weights @ mu, np.sqrt(weights @ self.cov_matrix @ weights)
-            sigmas_no_beta[i] = volatility
+            # Efficient Frontier (No Beta)
+            for i, target_return in enumerate(mus):
+                weights, _ = self.optimize(target_return, with_beta=False, record=False)
+                weights = np.array(list(weights.values()))
+                volatility = np.sqrt(weights @ self.cov_matrix @ weights)
+                sigmas_no_beta[i] = volatility
 
-        scatter2 = ax[1].scatter(
-            sigmas_no_beta, mus, c=(mus - self.rf) / sigmas_no_beta, cmap='viridis'
-        )
-        ax[1].set_title("Efficient Frontier (No Beta)")
-        ax[1].set_xlabel("Volatility")
-        ax[1].set_ylabel("Return")
-        ax[1].grid(True)
+            scatter2 = ax[1].scatter(
+                sigmas_no_beta, mus, c=(mus - self.rf) / sigmas_no_beta, cmap='viridis'
+            )
+            ax[1].set_title("Efficient Frontier (No Beta)")
+            ax[1].set_xlabel("Volatility")
+            ax[1].set_ylabel("Return")
+            ax[1].grid(True)
+
+        elif target_input == 'volatility':
+            volatilities = np.linspace(0.01, np.sqrt(self.cov_matrix.max()), n)
+            returns_with_beta = np.zeros(n)
+            returns_no_beta = np.zeros(n)
+
+            # Efficient Frontier (With Beta)
+            for i, target_volatility in enumerate(volatilities):
+                weights, _ = self.optimize(target_volatility, target_input=target_input, record=False)
+                weights = np.array(list(weights.values()))
+                returns = weights @ mu
+                returns_with_beta[i] = returns
+
+            scatter1 = ax[0].scatter(
+                volatilities, returns_with_beta, c=(returns_with_beta - self.rf) / volatilities, cmap='viridis'
+            )
+            ax[0].set_title("Efficient Frontier (With Beta)")
+            ax[0].set_xlabel("Volatility")
+            ax[0].set_ylabel("Return")
+            ax[0].grid(True)
+
+            # Efficient Frontier (No Beta)
+            for i, target_volatility in enumerate(volatilities):
+                weights, _ = self.optimize(target_volatility, with_beta=False, record=False)
+                weights = np.array(list(weights.values()))
+                returns = weights @ mu
+                returns_no_beta[i] = returns
+
+            scatter2 = ax[1].scatter(
+                volatilities, returns_no_beta, c=(returns_no_beta - self.rf) / volatilities, cmap='viridis'
+            )
+            ax[1].set_title("Efficient Frontier (No Beta)")
+            ax[1].set_xlabel("Volatility")
+            ax[1].set_ylabel("Return")
+            ax[1].grid(True)
 
         # Add shared colorbar
         cbar = fig.colorbar(scatter1, ax=ax, orientation='vertical', fraction=0.05, pad=0.04)
@@ -237,3 +289,4 @@ class Markowitz:
             plt.savefig("efficient_frontier.png")
         else:
             plt.show()
+

@@ -21,7 +21,8 @@ class Portfolio(tuple):
             'expected_returns': {obj[i]: -1 for i in range(len(obj))},
             'volatility': {obj[i]: -1 for i in range(len(obj))},
             'beta': {obj[i]: -1 for i in range(len(obj))},
-            'sharpe_ratio': {obj[i]: -1 for i in range(len(obj))}
+            'sharpe_ratio': {obj[i]: -1 for i in range(len(obj))},
+            'sentiment': {obj[i]: -1 for i in range(len(obj))}
         }
 
         obj.optimum_portfolio_info = {
