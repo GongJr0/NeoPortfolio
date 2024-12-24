@@ -65,10 +65,8 @@ class Sentiment:
 
     def compose_sentiment(self, text: str) -> str:
         p_val = self.get_score_all(text)
-        if p_val[0] + p_val[2] == 0:
-            return 0.5 # Neutral if no positive or negative sentiment
 
-        score = p_val[2] / (p_val[0] + p_val[2]) # \frac{positive}{positive + negative}
+        score = p_val[2] - p_val[0]
         return score
 
     def get_sentiment(self, query: str, n: int, lookback: Days) -> float:
@@ -87,6 +85,7 @@ class Sentiment:
             sentiments.append(score)
 
         if sentiments == []:
+            self.cache.cache(query, 0.5)
             return .5  # Neutral if no sentiment found
 
         ewma_sentiment = pd.Series(sentiments).ewm(halflife=2).mean().iloc[-1]

@@ -44,7 +44,7 @@ class SentimentCache:
         self.curr.close()
 
     def cache(self, symbol: str, sentiment: float) -> None:
-        now = dt.now()
+        now = dt.now().isoformat()
         expire = self.exp_after
         q = "INSERT OR REPLACE INTO cache (symbol, sentiment, createdAt, expireAfter) VALUES (?, ?, ?, ?)"
         self.curr.execute(q, (symbol, sentiment, now, expire))
@@ -62,7 +62,7 @@ class SentimentCache:
         # Check if the data is expired
         now = dt.now()
         expire = dt.fromisoformat(data[2]) + timedelta(days=data[3])
-        if now > expire:
+        if now - expire > timedelta(seconds=0):
             return None
 
         return data[1]
