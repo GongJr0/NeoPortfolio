@@ -3,11 +3,10 @@ import pandas as pd
 import numpy as np
 from datetime import datetime, timedelta
 
-from jupyterlab.semver import max_satisfying
+from networkx.readwrite.json_graph.adjacency import adjacency_graph
 from scipy import optimize
 from scipy.optimize import OptimizeResult
 import matplotlib.pyplot as plt
-import plotly
 
 import warnings
 
@@ -22,7 +21,7 @@ class Markowitz:
                  market: StockSymbol,
                  horizon: Days = 21,
                  lookback: Days = 252,
-                 rf_rate: float = 0.05717):
+                 rf_rate_pa: float = 0.05717):
 
         # Sentiment Analysis Module
         self.sentiment = Sentiment()
@@ -34,7 +33,7 @@ class Markowitz:
         self.market: yf.Ticker = yf.Ticker(market)
         self.market_name: str = self.market.info['shortName']
 
-        self.rf = rf_rate
+        self.rf = (1 + (rf_rate_pa / 2))**(lookback / 365) - 1 # semi-annual compounding with ACT/365 (approximate for US Treasury Bonds)
 
         # Portfolio data construction
         self.raw_close, self.periodic_return, self.expected_returns, self.volatility = self._construct_data(horizon=horizon, lookback=lookback)
@@ -186,10 +185,11 @@ class Markowitz:
         def objective(weights):
             return weights.T @ self.cov_matrix @ weights
 
-        opt = optimize.minimize(objective, initial_guess,
+        opt = optimize.minimize(objective,
+                                initial_guess,
                                 constraints=constraints,
-                                bounds=[bounds for _ in range(n)],
-                                method='SLSQP')  # type: ignore
+                                bounds=[bounds for _ in range(n)]
+                                )  # type: ignore
 
         if opt.success:
 
@@ -260,8 +260,8 @@ class Markowitz:
 
         opt = optimize.minimize(objective, initial_guess,
                                 constraints=constraints,
-                                bounds=[bounds for _ in range(n)],
-                                method='SLSQP')
+                                bounds=[bounds for _ in range(n)]
+                                )
 
         if opt.success:
 
@@ -291,32 +291,37 @@ class Markowitz:
         :param n: number of points to plot
         :param save: save the plot
         """
+        beta = np.array(self.beta)
         mu = self.expected_returns.values
         fig, ax = plt.subplots(1, 2, figsize=(12, 6))
 
         # Efficient Frontier (With Beta)
         if target_input == 'return':
             mus = np.linspace(mu.min(), mu.max(), n)
+
+            adjusted_mus = self.expected_returns.values - beta * (self.rm - self.rf)
+            mus_beta = np.linspace(adjusted_mus.min(), adjusted_mus.max(), n)
+
             sigmas = np.zeros(n)
             sigmas_no_beta = np.zeros(n)
 
-            for i, target_return in enumerate(mus):
-                weights, _ = self.optimize_return(target_return, record=False)
+            for i, (target_w_beta, target_no_beta) in enumerate(zip(mus_beta, mus)):
+                weights, _ = self.optimize_return(target_w_beta, record=False)
                 weights = np.array(list(weights.values()))
                 volatility = np.sqrt(weights @ self.cov_matrix @ weights)
                 sigmas[i] = volatility
 
-                weights_no_beta, _ = self.optimize_return(target_return, include_beta=False, record=False)
+                weights_no_beta, _ = self.optimize_return(target_no_beta, include_beta=False, record=False)
                 weights_no_beta = np.array(list(weights_no_beta.values()))
                 volatility_no_beta = np.sqrt(weights_no_beta @ self.cov_matrix @ weights_no_beta)
                 sigmas_no_beta[i] = volatility_no_beta
 
             scatter1 = ax[0].scatter(
-                    sigmas, mus, c=(mus - self.rf) / sigmas, cmap='viridis' # Logic error, don't divide by sigma
+                    sigmas, mus, c=(mus - self.rf) / sigmas, cmap='viridis'
             )
 
             scatter2 = ax[1].scatter(
-                    sigmas_no_beta, mus, c=(mus - self.rf) / sigmas_no_beta, cmap='viridis' # Logic error, don't divide by sigma
+                    sigmas_no_beta, mus, c=(mus - self.rf) / sigmas_no_beta, cmap='viridis'
             )
 
         if target_input == 'volatility':
@@ -337,11 +342,11 @@ class Markowitz:
                 mus_no_beta[i] = self.expected_returns.values @ weights_no_beta
 
             scatter1 = ax[0].scatter(
-                    sigmas, mus_with_beta, c=(mus_with_beta - self.rf) / sigmas, cmap='viridis' # Logic error, don't divide by sigma
+                    sigmas, mus_with_beta, c=(mus_with_beta - self.rf) / sigmas, cmap='viridis'
             )
 
             scatter2 = ax[1].scatter(
-                    sigmas, mus_no_beta, c=(mus_no_beta - self.rf) / sigmas, cmap='viridis' # Logic error, don't divide by sigma
+                    sigmas, mus_no_beta, c=(mus_no_beta - self.rf) / sigmas, cmap='viridis'
             )
 
         ax[0].set_title("Efficient Frontier (With Beta)")

@@ -5,6 +5,9 @@ from dotenv import load_dotenv
 import re
 import warnings
 
+from fontTools.subset import neuter_lookups
+from sympy.multipledispatch.dispatcher import ambiguity_register_error_ignore_dup
+
 from _class.SentimentCahe import SentimentCache
 
 from newsapi import NewsApiClient
@@ -51,7 +54,23 @@ class Sentiment:
                                           sort_by='publishedAt',
                                           page_size=n)
 
-        desc = [article['title'] + " " + article['description'] for article in articles['articles']]
+        filtered_articles = []
+        neutral_string = 'confident.' # Evaluates to a sentiment polarity of \approx 0.0 (neutral)
+        for article in articles['articles']:
+            if (article['description'] is None or article['description'] == '') and \
+                    (article['title'] is None or article['title'] == ''):
+                continue  # Skip articles with both description and title as None or empty
+
+            # Ensure no None values remain
+            if article['description'] is None:
+                article['description'] = neutral_string
+            if article['title'] is None:
+                article['title'] = neutral_string
+
+            filtered_articles.append(article)
+
+        desc = [article['description'] + ' ' + article['title'] for article in filtered_articles]
+
         return desc
 
     def get_score_all(self, text: str) -> dict:
@@ -70,7 +89,9 @@ class Sentiment:
         return score
 
     def get_sentiment(self, query: str, n: int, lookback: Days) -> float:
-        cache_response = self.cache.get(query)
+        cache_query = f"{query} {lookback=} {n=}"
+
+        cache_response = self.cache.get(cache_query)
 
         # Cache hit
         if cache_response is not None:
@@ -85,11 +106,11 @@ class Sentiment:
             sentiments.append(score)
 
         if sentiments == []:
-            self.cache.cache(query, 0.5)
+            self.cache.cache(cache_query, 0.5)
             return .5  # Neutral if no sentiment found
 
         ewma_sentiment = pd.Series(sentiments).ewm(halflife=2).mean().iloc[-1]
-        self.cache.cache(query, ewma_sentiment)
+        self.cache.cache(cache_query, ewma_sentiment)
         return ewma_sentiment
 
 
