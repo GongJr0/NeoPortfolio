@@ -3,7 +3,6 @@ import pandas as pd
 import numpy as np
 from datetime import datetime, timedelta
 
-from networkx.readwrite.json_graph.adjacency import adjacency_graph
 from scipy import optimize
 from scipy.optimize import OptimizeResult
 import matplotlib.pyplot as plt
@@ -11,9 +10,9 @@ import matplotlib.pyplot as plt
 import warnings
 
 from CustomTypes import StockSymbol, Portfolio, Days
-from typing import cast, Optional, Literal
+from typing import Optional, Literal
 
-from _class.Sentiment import Sentiment
+from stock_analyzer.Sentiment import Sentiment
 
 class Markowitz:
 
@@ -362,6 +361,6 @@ class Markowitz:
         fig.colorbar(scatter2, ax=ax[1], label='Sharpe Ratio')
 
         if save:
-            plt.savefig(f"{" ".join(self.portfolio)}.png")
+            plt.savefig(f"{' '.join(self.portfolio)}.png")
 
         plt.show()

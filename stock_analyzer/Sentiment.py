@@ -2,25 +2,16 @@
 from datetime import timedelta, datetime as dt
 import os
 from dotenv import load_dotenv
-import re
-import warnings
 
-from fontTools.subset import neuter_lookups
-from sympy.multipledispatch.dispatcher import ambiguity_register_error_ignore_dup
-
-from _class.SentimentCahe import SentimentCache
+from stock_analyzer.SentimentCahe import SentimentCache
 
 from newsapi import NewsApiClient
-from bs4 import BeautifulSoup
 
-import numpy as np
 import pandas as pd
 
 from transformers import BertTokenizer, BertForSequenceClassification
-from transformers import pipeline
 import torch
 
-from typing import Optional
 from CustomTypes import Days
 
 class Sentiment:

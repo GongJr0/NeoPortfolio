@@ -27,16 +27,17 @@ class Portfolio(tuple):
 
         obj.optimum_portfolio_info = {
             'target_return': None,
+            'target_volatility': None,
             'weights': None,
             'risk_per_return': None,
         }
 
         return obj
 
-    def stock_results(self, stock: StockSymbol):
+    def _stock_results(self, stock: StockSymbol):
         res = {
-            'weights': self._results['weights'][stock],
-            'expected_returns': self._results['expected_returns'][stock],
+            'weight': self._results['weights'][stock],
+            'expected_return': self._results['expected_returns'][stock],
             'volatility': self._results['volatility'][stock],
             'beta': self._results['beta'][stock],
             'sharpe_ratio': self._results['sharpe_ratio'][stock]
@@ -48,7 +49,7 @@ class Portfolio(tuple):
             return super().__getitem__(key)
 
         elif isinstance(key, StockSymbol.__supertype__):
-            return self.stock_results(key)
+            return self._stock_results(key)
 
     @property
     def results(self):
