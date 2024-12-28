@@ -170,3 +170,6 @@ _class/models/
 
 # PyCharm config
 .idea/
+
+# DS_Store
+.DS_Store
