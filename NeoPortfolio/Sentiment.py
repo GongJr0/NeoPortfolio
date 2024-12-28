@@ -3,7 +3,7 @@ from datetime import timedelta, datetime as dt
 import os
 from dotenv import load_dotenv
 
-from stock_analyzer.SentimentCahe import SentimentCache
+from NeoPortfolio.SentimentCahe import SentimentCache
 
 from newsapi import NewsApiClient
 

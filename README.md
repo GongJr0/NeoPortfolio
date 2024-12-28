@@ -27,19 +27,19 @@ The combination engine to select stock on the users behalf is currently in devel
 therefore the first step is to create a portfolio of $n$ stocks.
 
 ```python
-from stock_analyzer import Portfolio
-from stock_analyzer import Markowitz
+from NeoPortfolio import Portfolio
+from NeoPortfolio import Markowitz
 
 # Create a portfolio of 5 stocks
 portfolio = Portfolio('AAPL', 'MSFT', 'GOOGL', 'AMZN', 'TSLA')
 
 # Define the investment horizon and lookback period in days
-horizon = 21 # 1 trading month
-lookback = 252 # 1 trading year
+horizon = 21  # 1 trading month
+lookback = 252  # 1 trading year
 
 # Define the index to use as the market, and the risk-free rate
-market = '^GSPC' # S&P 500
-rf_rate = 0.5717 # 10 year treasury yield (USA, per annum)
+market = '^GSPC'  # S&P 500
+rf_rate = 0.5717  # 10 year treasury yield (USA, per annum)
 
 # Create a Markowitz object
 markowitz = Markowitz(portfolio,
@@ -52,17 +52,17 @@ markowitz = Markowitz(portfolio,
 # Use optimize_volatility to pass a target volatility instead
 
 target_return = 0.1
-bounds = (0.05, 0.7) # Set the bounds for the weights
-with_beta = True # Include beta in the optimization
-additional_constraints = [] # Add additional constraints as a list if needed
-                            # use scipy.optimize constraint format
+bounds = (0.05, 0.7)  # Set the bounds for the weights
+with_beta = True  # Include beta in the optimization
+additional_constraints = []  # Add additional constraints as a list if needed
+# use scipy.optimize constraint format
 
 # Run the optimization
 weights, opt = markowitz.optimize_return(target_return,
                                          bounds=bounds,
                                          include_beta=with_beta,
                                          additional_constraints=additional_constraints,
-                                         record=True) # record the results in the portfolio object
+                                         record=True)  # record the results in the portfolio object
 
 # Print the results
 print(f'Optimal weights:\n{weights}')

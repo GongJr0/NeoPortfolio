@@ -12,7 +12,7 @@ import warnings
 from CustomTypes import StockSymbol, Portfolio, Days
 from typing import Optional, Literal
 
-from stock_analyzer.Sentiment import Sentiment
+from NeoPortfolio.Sentiment import Sentiment
 
 class Markowitz:
 
