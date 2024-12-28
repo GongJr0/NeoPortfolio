@@ -7,10 +7,10 @@ name = "NeoPortfolio"
 version = "1.0.0"
 description = "An extended version of traditional portfolio optimization"
 authors = [
-    {name = "Ege Güney Kıymaç", email ="guneykiymac@gmail.com"}
+    {name = "Ege Güney Kıymaç", email = "guneykiymac@gmail.com"}
 ]
 readme = "README.md"
-license = "MIT"
+license = {file = "LICENSE"}
 dependencies = [
     "beautifulsoup4>=4.11.2",
     "fonttools>=4.39.4",
