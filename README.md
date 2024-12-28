@@ -1,4 +1,4 @@
-# Stock Analyzer
+# NeoPortfolio
 
 ## Introduction
 
@@ -8,15 +8,12 @@ prediction. The project is not final and this README will be updates as changes 
 introduced and more modules are added.
 
 ## Installation
-After forking this repository, there are two steps to start using the project:
-1. Confirm you are using Python 3.12.x to ensure compatibility with the project.
-    ```bash
-    python --version
-    ```
-2. Install the required packages using the following command:
-    ```bash
-    pip install -r requirements.txt
-    ```
+You can start using the `NeoPortfolio` package after running the following command in your 
+desired environment.
+
+```bash
+python -m pip install NeoPortfolio
+```
    
 ## Quick Start
 The main goal of this project is to eliminate the step-by-step approach to portfolio
