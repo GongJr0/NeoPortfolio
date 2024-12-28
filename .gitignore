@@ -76,6 +76,7 @@ docs/_build/
 target/
 
 # Jupyter Notebook
+.ipynb
 .ipynb_checkpoints
 
 # IPython
@@ -162,3 +163,7 @@ cython_debug/
 # Saved Model files
 _class/models/
 /_class/models
+
+# Cahce db
+.db
+.sqlite3
