@@ -1,3 +1,5 @@
+from .Portfolio import Portfolio
+
 import yfinance as yf
 import pandas as pd
 import numpy as np
@@ -9,10 +11,10 @@ import matplotlib.pyplot as plt
 
 import warnings
 
-from CustomTypes import StockSymbol, Portfolio, Days
+from .CustomTypes import StockSymbol, Days
 from typing import Optional, Literal
 
-from NeoPortfolio.Sentiment import Sentiment
+from .Sentiment import Sentiment
 
 class Markowitz:
 
@@ -20,10 +22,12 @@ class Markowitz:
                  market: StockSymbol,
                  horizon: Days = 21,
                  lookback: Days = 252,
-                 rf_rate_pa: float = 0.05717):
+                 rf_rate_pa: float = 0.05717,
+                 api_key_path: str = ...,
+                 api_key_var: str = ...) -> None:
 
         # Sentiment Analysis Module
-        self.sentiment = Sentiment()
+        self.sentiment = Sentiment(api_key_path=api_key_path, api_key_var=api_key_var)
 
         # Portfolio, market, and environment definition
         self.portfolio: Portfolio = portfolio

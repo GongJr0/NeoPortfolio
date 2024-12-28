@@ -14,6 +14,11 @@ desired environment.
 ```bash
 python -m pip install NeoPortfolio
 ```
+#### PyTorch
+If the `pip install` does not work, it is likely due to an incompatibility with the PyTorch
+version pip attempts to install. In this case, you can install PyTorch manually by following
+[PyTorch Installation Guide](https://pytorch.org/get-started/locally/) with the __*compute platform*__
+set to __CPU__.
    
 ## Quick Start
 The main goal of this project is to eliminate the step-by-step approach to portfolio

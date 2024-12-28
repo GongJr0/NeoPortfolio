@@ -1,2 +1,2 @@
-from Markowitz import Markowitz
-from CustomTypes import Portfolio
+from .Markowitz import Markowitz
+from .Portfolio import Portfolio

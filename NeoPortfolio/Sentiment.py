@@ -3,7 +3,7 @@ from datetime import timedelta, datetime as dt
 import os
 from dotenv import load_dotenv
 
-from NeoPortfolio.SentimentCahe import SentimentCache
+from .SentimentCahe import SentimentCache
 
 from newsapi import NewsApiClient
 
@@ -12,29 +12,38 @@ import pandas as pd
 from transformers import BertTokenizer, BertForSequenceClassification
 import torch
 
-from CustomTypes import Days
+from .CustomTypes import Days
 
 class Sentiment:
     """
     FinBERT Sentiment Analysis for Financial News.
     """
-    def __init__(self):
-        load_dotenv('_class/api.env')
+    def __init__(self, api_key_path: str, api_key_var: str) -> None:
+        self.set_api_key(api_key_path)
 
-        if os.getenv('API_KEY') == None:
-            raise ValueError("API_KEY not found in environment variables")
+        if os.getenv(api_key_var) is None:
+            raise ValueError(f"{api_key_var} not found in environment variables")
+
+        self.key_var = api_key_var
 
         self.tokenizer = BertTokenizer.from_pretrained('yiyanghkust/finbert-tone')
         self.model = BertForSequenceClassification.from_pretrained('yiyanghkust/finbert-tone')
         self.cache = self._init_cache()
 
     @staticmethod
+    def set_api_key(path: str) -> None:
+        if not path.split('.')[-1] == 'env':
+            raise ValueError("Invalid file type. Must be a .env file")
+        load_dotenv(path)
+
+
+
+    @staticmethod
     def _init_cache(name: str = 'sentiment.db', exp_after: int = 3600) -> SentimentCache:
         return SentimentCache(name, exp_after)
 
-    @staticmethod
-    def search(query: str, *, n: int, lookback: Days) -> list:
-        key = os.getenv('API_KEY')
+    def search(self, query: str, *, n: int, lookback: Days) -> list:
+        key = os.getenv(self.key_var)
         newsapi = NewsApiClient(api_key=key)
 
         date = dt.today() - timedelta(days=lookback)
