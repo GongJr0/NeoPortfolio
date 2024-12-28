@@ -167,3 +167,6 @@ _class/models/
 # Cahce db
 .db
 .sqlite3
+
+# PyCharm config
+.idea/
