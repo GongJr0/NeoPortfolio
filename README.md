@@ -48,7 +48,9 @@ markowitz = Markowitz(portfolio,
                       market=market,
                       horizon=horizon,
                       lookback=lookback,
-                      rf_rate_pa=rf_rate)
+                      rf_rate_pa=rf_rate,
+                      api_key_path='path/to/newsapi/key.env',
+                      api_key_var='YOUR_VARNAME')
 
 # Define optimization parameters for a target return of 10%
 # Use optimize_volatility to pass a target volatility instead

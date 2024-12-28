@@ -36,8 +36,6 @@ class Sentiment:
             raise ValueError("Invalid file type. Must be a .env file")
         load_dotenv(path)
 
-
-
     @staticmethod
     def _init_cache(name: str = 'sentiment.db', exp_after: int = 3600) -> SentimentCache:
         return SentimentCache(name, exp_after)
@@ -78,14 +76,14 @@ class Sentiment:
         outputs = self.model(**inputs)
 
         logits = outputs.logits.squeeze()
-        p_val = torch.nn.functional.softmax(logits, dim=-1).detach().numpy()
-
+        p_val = torch.nn.functional.softmax(logits, dim=0).detach().numpy()
         return p_val
 
     def compose_sentiment(self, text: str) -> str:
         p_val = self.get_score_all(text)
 
-        score = p_val[2] - p_val[0]
+        score = p_val[1] - p_val[2]
+        print(score)
         return score
 
     def get_sentiment(self, query: str, n: int, lookback: Days) -> float:
@@ -106,7 +104,7 @@ class Sentiment:
             sentiments.append(score)
 
         if sentiments == []:
-            self.cache.cache(cache_query, 0.5)
+            self.cache.cache(cache_query, 0.0)
             return .5  # Neutral if no sentiment found
 
         ewma_sentiment = pd.Series(sentiments).ewm(halflife=2).mean().iloc[-1]

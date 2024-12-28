@@ -41,7 +41,6 @@ class SentimentCache:
 
     def close(self) -> None:
         self.conn.close()
-        self.curr.close()
 
     def cache(self, symbol: str, sentiment: float) -> None:
         now = dt.now().isoformat()
