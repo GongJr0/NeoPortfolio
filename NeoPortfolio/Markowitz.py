@@ -1,4 +1,5 @@
 from .Portfolio import Portfolio
+from .ReturnPred import ReturnPred
 
 import yfinance as yf
 import pandas as pd
@@ -20,9 +21,9 @@ class Markowitz:
 
     def __init__(self, portfolio: Portfolio,
                  market: StockSymbol,
-                 horizon: Days = 21,
-                 lookback: Days = 252,
-                 rf_rate_pa: float = 0.05717,
+                 horizon: int = 21,
+                 lookback: int = 252,
+                 rf_rate_pa: Optional[float] = None,
                  api_key_path: str = ...,
                  api_key_var: str = ...) -> None:
 
@@ -35,6 +36,11 @@ class Markowitz:
 
         self.market: yf.Ticker = yf.Ticker(market)
         self.market_name: str = self.market.info['shortName']
+
+        if rf_rate_pa is None:
+            us_bond_10y = yf.Ticker('^TNX')
+            us_bond_10y = us_bond_10y.history(period='1d')['Close']
+            rf_rate_pa = us_bond_10y.iloc[-1] / 100
 
         self.rf = (1 + (rf_rate_pa / 2))**(lookback / 365) - 1 # semi-annual compounding with ACT/365 (approximate for US Treasury Bonds)
 
@@ -62,19 +68,48 @@ class Markowitz:
         data = self.portfolio.tickers.history(start=start, end=now, interval='1d')
         data = data['Close']
 
+        return_pred = ReturnPred(data, horizon)
+        expected_returns = return_pred.all_stocks_pred()
+
+        return_dict = {}
+        for stock in expected_returns.keys():
+            if expected_returns[stock]['success']:
+                return_dict[stock] = expected_returns[stock]['expected_return']
+            else:
+                warnings.warn(f"Model performance for {stock} is low. Falling back to historical EWMA.", category=UserWarning)
+                return_dict[stock] = expected_returns[stock]['expected_return'] # EWMA is already calculated if success == False
+
+        price_dict = {stock: expected_returns[stock]['expected_price'] for stock in expected_returns.keys()}
+        print(f"Expected Prices at {horizon} days:\n{price_dict}")
+
+        return_series = pd.Series(return_dict.values(), index=return_dict.keys())
+
+
+
+
         # Calculate periodic returns
         periodic_return = (data - data.shift(horizon)) / data.shift(horizon)
         periodic_return = periodic_return.dropna()
 
         # Calculate expected returns and volatility
-        expected_returns = periodic_return.ewm(span=horizon).mean().iloc[-1]
+        expected_returns = return_series
         volatility = periodic_return.std()
 
         # Adjust return with sentiment analysis
+        if horizon < 30:
+            sentiment_period = horizon
+        else:
+            sentiment_period = 30
+
         for stock in self.portfolio:
-            sentiment_score = self.sentiment.get_sentiment(f"{self.names[stock]} Stock", n=10, lookback=horizon)
+            sentiment_score = self.sentiment.get_sentiment(f"{self.names[stock]} Stock", n=10, lookback=sentiment_period)
             self.portfolio.results['sentiment'][stock] = round(sentiment_score, 4)
-            expected_returns[stock] = expected_returns[stock] * (1 + 0.25 * sentiment_score)  # 50% weight on sentiment
+            expected_returns[stock] = expected_returns[stock] * (1 + 0.33 * sentiment_score)  # 33% weight on sentiment
+
+        if horizon >= 30:
+            warnings.warn(f"Sentiment analysis is done for a maximum period of 30 days due to API limitations."
+                          f"You will see this warning if the investment horizon is greater than 30 days.",
+                          category=UserWarning)
 
         for i in expected_returns.index:
             self.portfolio.results['expected_returns'][i] = expected_returns[i].round(4)
@@ -101,7 +136,15 @@ class Markowitz:
 
         volatility = periodic_return.std()
 
-        rm = periodic_return.ewm(span=horizon).mean().iloc[-1]
+        span = np.round(np.sqrt(horizon), 0) * 2
+        rm = periodic_return.ewm(span=span).mean().iloc[-1]
+
+        periodic_return.index = pd.to_datetime(periodic_return.index.date)
+        common_index = periodic_return.index.intersection(self.periodic_return.index)
+
+        periodic_return = periodic_return.loc[common_index]
+
+
 
         return periodic_return, volatility, rm
 
@@ -204,10 +247,6 @@ class Markowitz:
                 self.portfolio.optimum_portfolio_info['target_volatility'] = np.sqrt(opt.x @ self.cov_matrix @ opt.x)
                 self.portfolio.optimum_portfolio_info['weights'] = self.portfolio.results['weights']
 
-                coef_of_variance = [(np.std(self.periodic_return[stock]) / np.mean(self.periodic_return[stock])).round(4)
-                                    for stock in self.portfolio]
-
-                self.portfolio.optimum_portfolio_info['risk_per_return'] = {self.portfolio[i]: coef_of_variance[i] for i in range(n)}
 
             return {self.portfolio[i]: opt.x[i].round(4) for i in range(len(opt.x))}, opt
 
@@ -300,10 +339,14 @@ class Markowitz:
 
         # Efficient Frontier (With Beta)
         if target_input == 'return':
-            mus = np.linspace(mu.min(), mu.max(), n)
+            min_mu = mu.min() if mu.min() > 0 else 0
+            max_mu = mu.max()
+            mus = np.linspace(min_mu, max_mu, n)
 
             adjusted_mus = self.expected_returns.values - beta * (self.rm - self.rf)
-            mus_beta = np.linspace(adjusted_mus.min(), adjusted_mus.max(), n)
+            adjusted_min = adjusted_mus.min() if adjusted_mus.min() > 0 else 0
+            adjusted_max = adjusted_mus.max()
+            mus_beta = np.linspace(adjusted_min, adjusted_max, n)
 
             sigmas = np.zeros(n)
             sigmas_no_beta = np.zeros(n)
@@ -328,7 +371,7 @@ class Markowitz:
             )
 
         if target_input == 'volatility':
-            min_sigma = self.min_volatility()
+            min_sigma = self.min_volatility() if self.min_volatility() > 0 else 0
             max_sigma = self.volatility.max()
 
             sigmas = np.linspace(min_sigma, max_sigma, n)

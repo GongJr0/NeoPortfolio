@@ -60,7 +60,7 @@ class SentimentCache:
 
         # Check if the data is expired
         now = dt.now()
-        expire = dt.fromisoformat(data[2]) + timedelta(days=data[3])
+        expire = dt.fromisoformat(data[2]) + timedelta(seconds=data[3])
         if now - expire > timedelta(seconds=0):
             return None
 
