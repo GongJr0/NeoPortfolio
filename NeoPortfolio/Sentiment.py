@@ -3,7 +3,7 @@ from datetime import timedelta, datetime as dt
 import os
 from dotenv import load_dotenv
 
-from .SentimentCahe import SentimentCache
+from .SentimentCache import SentimentCache
 
 from newsapi import NewsApiClient
 
@@ -83,7 +83,7 @@ class Sentiment:
         p_val = self.get_score_all(text)
 
         score = p_val[1] - p_val[2]
-        print(score)
+
         return score
 
     def get_sentiment(self, query: str, n: int, lookback: Days) -> float:

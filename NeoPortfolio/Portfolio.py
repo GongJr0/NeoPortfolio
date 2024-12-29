@@ -25,7 +25,6 @@ class Portfolio(tuple):
             'target_return': None,
             'target_volatility': None,
             'weights': None,
-            'risk_per_return': None,
         }
 
         return obj
