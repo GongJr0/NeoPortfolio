@@ -1,4 +1,4 @@
-from nCrCache import nCrCache
+from .nCrCache import nCrCache
 
 import pandas as pd
 import numpy as np
@@ -12,6 +12,7 @@ from bs4 import BeautifulSoup
 from io import StringIO
 import datetime as dt
 
+from scipy.optimize import minimize
 
 class CombinationEngine:
     """
@@ -45,6 +46,7 @@ class CombinationEngine:
         self.expected_returns = self._get_ewma_expected(horizon=horizon)
         self.volatility = self._get_volatility(horizon=horizon)
 
+
         self.comb_space_components = self._get_comb_space_count()
         self.high_ret = self._high_return_stock_proportion(n)
         self.low_vol = 1 - self.high_ret
@@ -67,7 +69,6 @@ class CombinationEngine:
         table = soup.find_all('table')[table_index]
         table = StringIO(str(table))
         df = pd.read_html(table)[0]
-        print(df)
 
         components = pd.Series(df[col])
 
@@ -79,7 +80,6 @@ class CombinationEngine:
             components = components.replace("BF.B", "BF-B")
 
         return components.tolist()
-
 
     @staticmethod
     def _get_nCr_generator(components: list, n: int) -> list:
@@ -131,19 +131,19 @@ class CombinationEngine:
 
         return periodic_returns
 
-    def _get_ewma_expected(self, horizon: int) -> dict[str, float]:
+    def _get_ewma_expected(self, horizon: int) -> pd.Series:
         """
         Get the exponentially weighted moving average expected returns.
         """
-        ewma_expected = self.periodic_returns.ewm(halflife=horizon).mean().iloc[-1].to_dict()
+        ewma_expected = self.periodic_returns.ewm(halflife=horizon).mean().iloc[-1]
         return ewma_expected
 
-    def _get_volatility(self, horizon: int) -> dict[str, float]:
+    def _get_volatility(self, horizon: int) -> pd.Series:
         """
         Get the volatility of the components.
         """
         ewma_var = self.periodic_returns.pow(2).ewm(span=horizon).mean()
-        volatility = ewma_var.apply(np.sqrt).iloc[-1].to_dict()
+        volatility = ewma_var.apply(np.sqrt).iloc[-1]
         return volatility
 
     @staticmethod
@@ -172,7 +172,14 @@ class CombinationEngine:
         hi_ret = round(self.high_ret * self.comb_space_components)
         lo_vol = round(self.low_vol * self.comb_space_components)
 
-        ret_based = list(sorted(self.expected_returns, key=self.expected_returns.get, reverse=True))[:hi_ret]
-        vol_based = list(sorted(self.volatility, key=self.volatility.get, reverse=False))[:lo_vol]
+        df = pd.DataFrame({
+            'expected_return': self.expected_returns,
+            'volatility': self.volatility
+        })
 
+        ret_based = df.loc[df['expected_return'] <= 2 * self.target, 'expected_return'].nlargest(hi_ret).index
+        vol_based = df.loc[df['volatility'] < df['expected_return'], 'volatility'].nsmallest(lo_vol).index
         return list({*ret_based, *vol_based})
+
+    def pass_optimization_params(self):
+        return self.n, self.horizon, self.lookback, self.target, self.historical_close, self.periodic_returns, self.volatility
