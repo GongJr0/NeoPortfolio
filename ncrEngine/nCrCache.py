@@ -7,6 +7,7 @@ import pickle
 from typing import Any, Optional
 from pandas import DataFrame
 
+
 class nCrCache:
     def __init__(self, name: PathLike = None, expire_days: int = 1) -> None:
 
