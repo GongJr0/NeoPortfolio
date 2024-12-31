@@ -2,12 +2,14 @@ from nCrCache import nCrCache
 
 import pandas as pd
 import numpy as np
+
 from itertools import combinations
 
 import yfinance as yf
 import requests
 from bs4 import BeautifulSoup
 from io import StringIO
+import datetime as dt
 
 class CombinationEngine:
     """
@@ -107,11 +109,10 @@ class CombinationEngine:
         if response:
             return response
 
-
-        start = pd.Timestamp.today() - pd.Timedelta(days=lookback)
+        start = dt.datetime.today() - dt.timedelta(days=lookback)
         start = start.date()
 
-        end = pd.Timestamp.today().date()
+        end = dt.datetime.today().date()
 
         data = yf.download(' '.join(self.components), start=start, end=end)['Close']
         self.cache.cache(query_id, data)

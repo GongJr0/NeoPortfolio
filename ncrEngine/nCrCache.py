@@ -4,7 +4,8 @@ import datetime as dt
 from os import PathLike
 import pickle
 
-from typing import Any
+from typing import Any, Optional
+from pandas import DataFrame
 
 class nCrCache:
     def __init__(self, name: PathLike = None, expire_days: int = 1) -> None:
@@ -12,14 +13,14 @@ class nCrCache:
         self.conn, self.curr = self._connect(name)
         self.expire_days = expire_days
 
-
-    def _connect(self, name: PathLike) -> tuple[sql.Connection, sql.Cursor]:
+    @staticmethod
+    def _connect(name: PathLike) -> tuple[sql.Connection, sql.Cursor]:
         """
         Initialize the cache database.
         """
         if not name:
             name = "nCr.db"
-        elif (not name.endswith(".db")) or (not name.endswith(".sqlite")):
+        elif (not str(name).endswith(".db")) or (not str(name).endswith(".sqlite")):
             name += ".db"
 
         conn = sql.connect(name)
@@ -63,7 +64,7 @@ class nCrCache:
         self.curr.execute("DELETE FROM nCr")
         self.conn.commit()
 
-    def get(self, query_id: str) -> bytes:
+    def get(self, query_id: str) -> Optional[DataFrame]:
         """
         Get the data from the cache.
 
