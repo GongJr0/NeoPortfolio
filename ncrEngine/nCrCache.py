@@ -70,7 +70,7 @@ class nCrCache:
         :param query_id: identifier for with format: f"{market_name}_{lookback}"
         """
         query = """
-        SELECT data FROM nCr WHERE id = ?
+        SELECT * FROM nCr WHERE id = ?
         """
         self.curr.execute(query, (query_id,))
         data = self.curr.fetchone()
@@ -78,7 +78,7 @@ class nCrCache:
         if data is None:
             return None
 
-        if data[3] < dt.datetime.now().date():
+        if dt.datetime.fromisoformat(data[3]).date() < dt.datetime.now().date():
             return None
         else:
-            return pickle.loads(data[2])
+            return pickle.loads(data[1])
