@@ -1,6 +1,5 @@
 from .Portfolio import Portfolio
 from .ReturnPred import ReturnPred
-from ncrEngine.nCrEngine import CombinationEngine
 
 import yfinance as yf
 import pandas as pd

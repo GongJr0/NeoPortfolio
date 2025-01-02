@@ -6,16 +6,16 @@ from os import PathLike
 
 
 class PortfolioCache:
-    def __init__(self, name: Optional[str], expire_days: int = 1) -> None:
+    def __init__(self, name: Optional[str] = None, expire_days: int = 1) -> None:
         self.conn, self.curr = self._connect(name)
         self.expire_days = expire_days
 
     @staticmethod
-    def _connect(name: Optional[PathLike]) -> tuple[sql.Connection, sql.Cursor]:
+    def _connect(name: Optional[PathLike] = None) -> tuple[sql.Connection, sql.Cursor]:
         if name is None:
             name = "portfolioCache.db"
         elif not str(name).endswith(".db") and not str(name).endswith(".sqlite"):
-            name = f"{name.split('.')[0]}.db"
+            name = f"{str(name).split('.')[0]}.db"
 
         conn = sql.connect(name)
         curr = conn.cursor()
@@ -34,9 +34,10 @@ class PortfolioCache:
     def close(self) -> None:
         self.conn.close()
 
-    def cache(self, portfolio: tuple, data: Any) -> None:
-        portfolio_id = ' - '.join(portfolio)
-        created_at = datetime.now()
+    def cache(self, portfolio: tuple, target_return: float, data: Any) -> None:
+        portfolio_id = "(" + ", ".join(portfolio) + ")" + f"_{target_return}"
+        created_at = datetime.today().date()
+
         expires_at = created_at + timedelta(days=self.expire_days)
 
         data = pickle.dumps(data)
@@ -54,7 +55,7 @@ class PortfolioCache:
 
         if response:
             data, expires_at = response
-            if datetime.now() < datetime.strptime(expires_at, "%Y-%m-%d %H:%M:%S"):
+            if datetime.now() < datetime.strptime(expires_at, "%Y-%m-%d"):
                 return pickle.loads(data)
             else:
                 # Cache expired, remove the entry
@@ -62,6 +63,10 @@ class PortfolioCache:
                 self.conn.commit()
 
         return None
+
+    def clear(self) -> None:
+        self.curr.execute("DELETE FROM portfolio")
+        self.conn.commit()
 
     def __del__(self):
         self.close()

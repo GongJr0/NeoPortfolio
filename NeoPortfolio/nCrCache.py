@@ -9,13 +9,13 @@ from pandas import DataFrame
 
 
 class nCrCache:
-    def __init__(self, name: PathLike = None, expire_days: int = 1) -> None:
+    def __init__(self, name: Optional[PathLike] = None, expire_days: int = 1) -> None:
 
         self.conn, self.curr = self._connect(name)
         self.expire_days = expire_days
 
     @staticmethod
-    def _connect(name: PathLike) -> tuple[sql.Connection, sql.Cursor]:
+    def _connect(name: Optional[PathLike] = None) -> tuple[sql.Connection, sql.Cursor]:
         """
         Initialize the cache database.
         """

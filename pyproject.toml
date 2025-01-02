@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "NeoPortfolio"
-version = "1.0.2"
+version = "1.1.0"
 description = "An extended version of traditional portfolio optimization"
 authors = [
     {name = "Ege Güney Kıymaç", email = "guneykiymac@gmail.com"}
@@ -13,7 +13,6 @@ readme = "README.md"
 license = {file = "LICENSE"}
 dependencies = [
     "beautifulsoup4>=4.11.2",
-    "fonttools>=4.39.4",
     "matplotlib>=3.7.1",
     "networkx>=3.4.2",
     "newsapi-python>=0.2.7",
@@ -21,7 +20,7 @@ dependencies = [
     "pandas>=2.0.2",
     "python-dotenv>=1.0.1",
     "requests>=2.32.3",
-    "requests_cache>=1.2.1",
+    "requests-cache>=1.2.1",
     "scipy>=1.14.1",
     "sympy>=1.12",
     "torch>=2.5.1",

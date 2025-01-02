@@ -173,3 +173,4 @@ _class/models/
 
 # DS_Store
 .DS_Store
+ncrEngine/portfolioCache.db
