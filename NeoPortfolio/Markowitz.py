@@ -25,7 +25,8 @@ class Markowitz:
                  lookback: int = 252,
                  rf_rate_pa: Optional[float] = None,
                  api_key_path: str = ...,
-                 api_key_var: str = ...) -> None:
+                 api_key_var: str = ...,
+                 ) -> None:
 
         # Sentiment Analysis Module
         self.sentiment = Sentiment(api_key_path=api_key_path, api_key_var=api_key_var)

@@ -63,7 +63,7 @@ class ReturnPred:
         return data, today_data
 
 
-    def train(self, stock_data: Union[pd.DataFrame, pd.Series]) -> dict:
+    def train(self, stock_data: Union[pd.DataFrame, pd.Series], comb: bool = False) -> dict:
         """Train the model on a stock's historical returns. Hyperparameters are not tuned in order to keep the runtime
         low. In case of unacceptable accuracy, the fallback method is an historical EWMA with a span equal to the
         investment horizon (in days). This is an iteration on the traditional return calculation of using the mean return
@@ -79,17 +79,20 @@ class ReturnPred:
         X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=0)
 
         # GSCV
-        param_grid = {
-            'n_estimators': [100, 200],
-            'max_depth': [None, 10, 20],
-            'min_samples_split': [2, 5],
-            'max_features': ['sqrt', 'log2'],
-            'bootstrap': [True]
-        }
-        gscv = GridSearchCV(self.model, param_grid, cv=5, n_jobs=-1, scoring='neg_mean_squared_error')
-        gscv.fit(X_train, y_train)
+        if not comb:
+            param_grid = {
+                'n_estimators': [100, 200],
+                'max_depth': [None, 10, 20],
+                'min_samples_split': [2, 5],
+                'max_features': ['sqrt', 'log2'],
+                'bootstrap': [True]
+            }
+            gscv = GridSearchCV(self.model, param_grid, cv=5, n_jobs=-1, scoring='neg_mean_squared_error')
+            gscv.fit(X_train, y_train)
 
-        self.model = gscv.best_estimator_
+            self.model = gscv.best_estimator_
+        elif comb:
+            self.model.fit(X_train, y_train)
 
         pred = self.model.predict(X_test)
         target_error = np.var(y_test)
@@ -97,20 +100,18 @@ class ReturnPred:
         if mean_squared_error(y_test, pred) < target_error:
             success = True
 
-
-        pred = self.model.predict(X_test)
-        confidence = (1 - mean_absolute_percentage_error(y_test, pred)).round(4)
+        confidence = np.round(1 - mean_absolute_percentage_error(y_test, pred), 4)
 
         #pred last day
-        expected_price = self.model.predict(last_pred)[0].round(2)
-        expected_return = ((expected_price - stock_data.iloc[-1]) / stock_data.iloc[-1]).round(4)
+        expected_price = np.round(self.model.predict(last_pred)[0], 2)
+        expected_return = np.round((expected_price - stock_data.iloc[-1]) / stock_data.iloc[-1], 4)
 
         if not success:
             period_returns = (stock_data - stock_data.shift(self.inv_horizon)) / stock_data.shift(self.inv_horizon)
 
             span = np.round(np.sqrt(self.inv_horizon), 0) * 2
-            expected_return = period_returns.ewm(span=span).mean().iloc[-1].round(4)
-            expected_price = (stock_data.iloc[-1] * (1 + expected_return)).round(2)
+            expected_return = np.round(period_returns.ewm(span=span).mean().iloc[-1], 4)
+            expected_price = np.round(stock_data.iloc[-1] * (1 + expected_return), 2)
 
         return {'success': success,
                 'confidence': confidence,
@@ -118,7 +119,7 @@ class ReturnPred:
                 'expected_return': expected_return}
 
 
-    def all_stocks_pred(self) -> dict:
+    def all_stocks_pred(self, comb: bool = False) -> dict:
         """Return predictions for all stocks in the data"""
         stocks = self.split_stocks()
-        return {stock.name: self.train(stock) for stock in stocks}
+        return {stock.name: self.train(stock, comb) for stock in stocks}

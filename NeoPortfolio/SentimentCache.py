@@ -35,10 +35,6 @@ class SentimentCache:
 
         return conn, curr
 
-    def connect(self):
-        conn = sql.connect(self.name)
-        curr = conn.cursor()
-
     def close(self) -> None:
         self.conn.close()
 
