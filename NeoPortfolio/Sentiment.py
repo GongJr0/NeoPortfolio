@@ -1,6 +1,7 @@
 
 from datetime import timedelta, datetime as dt
 import os
+import warnings
 from dotenv import load_dotenv
 
 from .SentimentCache import SentimentCache
@@ -10,7 +11,6 @@ from newsapi import NewsApiClient
 import pandas as pd
 
 from transformers import BertTokenizer, BertForSequenceClassification
-import torch
 
 from .CustomTypes import Days
 
@@ -18,7 +18,9 @@ class Sentiment:
     """
     FinBERT Sentiment Analysis for Financial News.
     """
-    def __init__(self, api_key_path: str, api_key_var: str) -> None:
+    def __init__(self, api_key_path: os.PathLike, api_key_var: str) -> None:
+        warnings.filterwarnings("ignore")
+
         self.set_api_key(api_key_path)
 
         if os.getenv(api_key_var) is None:
@@ -31,8 +33,8 @@ class Sentiment:
         self.cache = self._init_cache()
 
     @staticmethod
-    def set_api_key(path: str) -> None:
-        if not path.split('.')[-1] == 'env':
+    def set_api_key(path: os.PathLike) -> None:
+        if not str(path).split('.')[-1] == 'env':
             raise ValueError("Invalid file type. Must be a .env file")
         load_dotenv(path)
 
@@ -72,7 +74,12 @@ class Sentiment:
         return desc
 
     def get_score_all(self, text: str) -> dict:
-        inputs = self.tokenizer(text, return_tensors='pt', padding=True, truncation=True)
+        inputs = self.tokenizer(text,
+                                return_tensors='pt',
+                                padding='max_length',
+                                truncation=True,
+                                max_length=512)
+
         outputs = self.model(**inputs)
 
         logits = outputs.logits.squeeze()

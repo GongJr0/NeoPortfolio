@@ -34,8 +34,8 @@ class PortfolioCache:
     def close(self) -> None:
         self.conn.close()
 
-    def cache(self, portfolio: tuple, target_return: float, data: Any) -> None:
-        portfolio_id = "(" + ", ".join(portfolio) + ")" + f"_{target_return}"
+    def cache(self, portfolio: tuple, target_return: float, bounds:tuple, data: Any) -> None:
+        portfolio_id = "(" + ", ".join(portfolio) + ")" + f"_{target_return}" + f"_{bounds}"
         created_at = datetime.today().date()
 
         expires_at = created_at + timedelta(days=self.expire_days)

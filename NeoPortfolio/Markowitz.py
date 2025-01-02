@@ -97,10 +97,7 @@ class Markowitz:
         volatility = periodic_return.std()
 
         # Adjust return with sentiment analysis
-        if horizon < 30:
-            sentiment_period = horizon
-        else:
-            sentiment_period = 30
+        sentiment_period = min(30, horizon)
 
         for stock in self.portfolio:
             sentiment_score = self.sentiment.get_sentiment(f"{self.names[stock]} Stock", n=10, lookback=sentiment_period)

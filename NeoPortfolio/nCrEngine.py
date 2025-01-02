@@ -1,4 +1,4 @@
-from nCrCache import nCrCache
+from .nCrCache import nCrCache
 
 import pandas as pd
 import numpy as np
@@ -30,7 +30,7 @@ class nCrEngine:
                  target_return: float = 0.1):
         assert n > 0, "n must be greater than 0"
 
-        with open("INDEX_MAP.json", "r") as f:
+        with open("NeoPortfolio/INDEX_MAP.json", "r") as f:
             self.INDEX_MAP = loads(f.read())
 
         if market not in self.INDEX_MAP.keys():
@@ -210,6 +210,7 @@ class nCrEngine:
             'expected_return': self.expected_returns,
             'volatility': self.volatility
         })
+        df = df.loc[df['expected_return'] > 0, :]
 
         ret_based = df.loc[df['expected_return'] <= 2 * self.target, 'expected_return'].nlargest(hi_ret).index
         vol_based = df.loc[df['volatility'] < df['expected_return'], 'volatility'].nsmallest(lo_vol).index
@@ -228,3 +229,4 @@ class nCrEngine:
                 self.historical_close,
                 self.periodic_returns,
                 self.volatility)
+
