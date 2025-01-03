@@ -1,5 +1,18 @@
 # NeoPortfolio
 
+1. [Introduction](#introduction)
+2. [Installation](#installation)
+3. [Quick Start](#quick-start)
+4. [Modules](#modules)
+    1. [`Portfolio` Class](#portfolio-class)
+    2. [`Markowitz` Class](#markowitz-class)
+        1. [`__init__` Parameters](#__init__-parameters)
+        2. [Methods](#methods)
+            1. [`optimize_return`](#optimize_return)
+            2. [`optimize_volatility`](#optimize_volatility)
+            3. [`efficient_frontier`](#efficient_frontier)
+    4. [`nCrOptimize`](...)
+
 ## Introduction
 
 This project aims to bring stock selection and portfolio optimization together while 
@@ -153,4 +166,42 @@ and plot the efficient frontier.
 
         Returns:
         - None
+## `nCrOptimize` Class
+`nCrOptimize` is a combination based portfolio selection class that selects the portfolio with the lowest
+volatility given a target return. Having an index specified as the market. The class compiles data on each
+component of the index and creates a pool of candidate portfolios. Due to the nature of this optimization
+iterating over all possible combinations is unfeasible and the number of possible combinations are controlled
+through aggressive filtering formulas.
 
+#### Filtering Methodology
+Stocks are selected from two subsets being:
+  - High Return
+  - Low Volatility
+ 
+The subsets are created by simply sorting the stocks by the respective metrics and applying a formula to determine
+the ratio of stocks to select from each subset. The formula is constructed as follows:
+
+- Assumptions:
+   1. 0.7 is the average ratio of stocks to select from the high return subset.
+   2. 5 is the component count of an average portfolio.
+
+- Derived Terms:
+  1. By extension of assumption 1, the ratio of low volatility stocks to select is derived to be $1-0.7=0.3$ on average.
+  2. Risk-aversion is determined by the component count with the assumption that more components are expected from a safer investor.
+  The factor that quantifies this is $\sigma_{tolerance} = \frac{n_{components} - 5}{5}$
+- Formula:
+  1. The ratio of high return stocks to select is given by:
+     $r_{return} = \frac{0.7}{1+\sigma_{tolerance}}$
+  
+  2. The ratio of low volatility stocks to select is given by:
+     $r_{volatility} = 1 - r_{return}$
+
+Having the ratios, however, does not determine the total number of stocks to include in the combination
+space. The total number $N$ is determined by the formula: $N = \min [N_{index},\\ (n_{components} \cdot \ln{N_{index})}],\\ \\ n \in [2, \infty)$
+
+Finally, the combination space is created by retrieving the:
+- Top $r_{return} \cdot N$ stocks from the high return subset.
+- Top $r_{volatility} \cdot N$ stocks from the low volatility subset.
+
+### Methods
+...
