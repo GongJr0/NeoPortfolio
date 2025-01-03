@@ -10,6 +10,7 @@ from newsapi import NewsApiClient
 
 import pandas as pd
 
+import torch
 from transformers import BertTokenizer, BertForSequenceClassification
 
 from .CustomTypes import Days

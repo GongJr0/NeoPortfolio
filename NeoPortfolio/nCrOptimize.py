@@ -3,6 +3,7 @@ from .ReturnPred import ReturnPred
 from .nCrEngine import nCrEngine
 from .Sentiment import Sentiment
 from .PortfolioCache import PortfolioCache
+from .CustomTypes import nCrResult
 
 import datetime as dt
 from operator import itemgetter
@@ -16,6 +17,8 @@ from scipy.optimize import minimize
 
 from typing import Optional, Any
 from os import PathLike
+
+from tqdm.auto import tqdm
 
 
 class nCrOptimize(nCrEngine):
@@ -62,14 +65,14 @@ class nCrOptimize(nCrEngine):
 
         return market_returns
 
-    def _iteration_optimize(self, portfolio, bounds: tuple = (0.0, 1.0)) -> dict[str, Any]:
+    def _iteration_optimize(self, portfolio, bounds: tuple[float, float] = (0.0, 1.0)) -> dict[str, Any]:
         """Optimization function ran in parallel iteration of portfolios.
 
         :param portfolio: Portfolio object
         :return: tuple of Portfolio object and optimized weights
         """
         # Cache query
-        cached = self.portfolio_cache.get(portfolio)
+        cached = self.portfolio_cache.get(portfolio, self.target, bounds)
         if cached:
             return cached
 
@@ -128,13 +131,14 @@ class nCrOptimize(nCrEngine):
         self.portfolio_cache.cache(portfolio, self.target, bounds, out)
         return out
 
-    def optimize_space(self, bounds: tuple = (0.0, 1.0)) -> list[dict[str, Any]]:
+    def optimize_space(self, bounds: tuple = (0.0, 1.0)) -> nCrResult:
         """
         Optimize the combination space.
 
         :return: List of optimized portfolios (best to worst)
         """
-        results = [self._iteration_optimize(portfolio, bounds) for portfolio in self.portfolios]
+        results = nCrResult([self._iteration_optimize(portfolio, bounds)
+                            for portfolio in tqdm(self.portfolios, desc="Iterating over portfolios")])
 
         results.sort(key=lambda x: (x['return'], -x['portfolio_variance']), reverse=True)
 
