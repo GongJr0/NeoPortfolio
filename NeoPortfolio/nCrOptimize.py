@@ -3,7 +3,7 @@ from .ReturnPred import ReturnPred
 from .nCrEngine import nCrEngine
 from .Sentiment import Sentiment
 from .PortfolioCache import PortfolioCache
-from .CustomTypes import nCrResult
+from .nCrResult import nCrResult
 
 import datetime as dt
 
@@ -44,6 +44,8 @@ class nCrOptimize(nCrEngine):
 
         self.market_returns = self._get_market().tz_localize(None)
 
+        self.rf_rate = self._get_rf_rate()
+
     def _get_portfolios(self) -> list:
         """
         Get Portfolio objects from string combinations.
@@ -65,6 +67,14 @@ class nCrOptimize(nCrEngine):
         market_returns = market_returns.dropna()
 
         return market_returns
+
+    def _get_rf_rate(self) -> float:
+        """Get the risk-free rate for the given horizon."""
+        ticker = yf.Ticker("^TNX")
+        pa_rate = ticker.history(period="1d")["Close"].iloc[0] / 100
+
+        horizon_rate = (1 + pa_rate/2)**(2*(self.horizon/360)) - 1 # Semi-annual compounding with ACT/360 convention
+        return horizon_rate
 
     def _iteration_optimize(self, portfolio, bounds: tuple[float, float] = (0.0, 1.0)) -> dict[str, Any]:
         """Optimization function ran in parallel iteration of portfolios.
@@ -141,7 +151,8 @@ class nCrOptimize(nCrEngine):
         :return: List of optimized portfolios (best to worst)
         """
         results = nCrResult([self._iteration_optimize(portfolio, bounds)
-                            for portfolio in tqdm(self.portfolios, desc="Iterating over portfolios")])
+                            for portfolio in tqdm(self.portfolios, desc="Iterating over portfolios")],
+                            rf_rate=self.rf_rate)
 
         results.sort(key=lambda x: (x['return'], -x['portfolio_variance']), reverse=True)
 
