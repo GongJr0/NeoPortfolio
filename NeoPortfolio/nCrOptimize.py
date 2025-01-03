@@ -6,7 +6,6 @@ from .PortfolioCache import PortfolioCache
 from .CustomTypes import nCrResult
 
 import datetime as dt
-from operator import itemgetter
 
 import pandas as pd
 import yfinance as yf
@@ -17,6 +16,8 @@ from scipy.optimize import minimize
 
 from typing import Optional, Any
 from os import PathLike
+
+import warnings
 
 from tqdm.auto import tqdm
 
@@ -83,7 +84,7 @@ class nCrOptimize(nCrEngine):
         return_preds = ReturnPred(historical_close, self.horizon).all_stocks_pred(comb=True)
         expected_returns = np.array([return_dict['expected_return'] for return_dict in return_preds.values()])
 
-        if self.key_path and self.key_var:
+        if self.key_path and self.key_var and self.sentiment_analysis:
             sentiment = Sentiment(self.key_path, self.key_var)
             sentiment_period = min(30, self.horizon)
 
@@ -116,7 +117,9 @@ class nCrOptimize(nCrEngine):
         def objective(weights):
             return weights.T @ cov_matrix @ weights
 
-        result = minimize(objective, initial_guess, bounds=bounds_ls, constraints=constraints)  # type: ignore
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", category=RuntimeWarning)
+            result = minimize(objective, initial_guess, bounds=bounds_ls, constraints=constraints)  # type: ignore
 
         out = {
             "portfolio": " - ".join(portfolio),
