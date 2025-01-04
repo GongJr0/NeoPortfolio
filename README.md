@@ -203,5 +203,51 @@ Finally, the combination space is created by retrieving the:
 - Top $r_{return} \cdot N$ stocks from the high return subset.
 - Top $r_{volatility} \cdot N$ stocks from the low volatility subset.
 
+### `__init__` Parameters
+- `market -> str`: The index to use as the market.
+- `n -> int`: The number of components in the portfolio.
+- `target_return -> float`: The target return for the portfolio.
+- `horizon -> int`: The investment horizon in days.
+- `lookback -> int`: The lookback period in days.
+- `max_pool_size -> Optional[int]`: The maximum number of stocks to include in the combination pool.
+- `api_key_path -> Optional[PathLike]`: The path to the .env file containing the NewsAPI key.
+- `api_key_var -> Optional[str]`: The name of the variable in the .env file containing the NewsAPI key.
+
 ### Methods
-...
+- `optimize_space`: Optimize the combination space for the lowest volatility given a target return.
+
+        Parameters:
+        - bounds: A tuple representing the bounds for the weights.
+        
+        Returns:
+        - `nCrReslut`: Wrapper object containing the results of the optimization.
+
+## `nCrResult` Class
+`nCrRsult` extends the `list` object and provides added functionality regarding the analysis and visualization
+of the results of the `nCrOptimize` class. It is not intended as a user-facing class and is only returned by
+`nCrOptimize.optimize_space`.
+
+## Methods
+- `max_return`: Get the maximum return of the portfolio.
+
+        Parameters:
+        - display: Prints a formatted HTML report if True.
+
+        Returns:
+        - dict: Restults of the highest return portfolio in the combination space.
+
+- `min_volatility`: Get the minimum volatility of the portfolio.
+    
+            Parameters:
+            - display: Prints a formatted HTML report if True.
+    
+            Returns:
+            - dict: Restults of the lowest volatility portfolio in the combination space.
+
+- `best_portfolio`: Get the best portfolio in the combination space.
+
+        Parameters:
+        - display: Prints a formatted HTML report if True.
+
+        Returns:
+        - dict: Restults of the best (max(p['return']/p['portfolio_variance'])) portfolio in the combination space.
