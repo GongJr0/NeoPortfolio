@@ -1,4 +1,5 @@
-from .nCrCache import nCrCache
+from .Cache import nCrCache
+from .CustomTypes import IndexSymbol, Days, StockSymbol
 
 import pandas as pd
 import numpy as np
@@ -22,13 +23,14 @@ class nCrEngine:
     Class to perform portfolio selection from all possible nCr combinations of a list of index components.
     """
 
-    def __init__(self, market: str,
+    def __init__(self, market: IndexSymbol,
                  n: int = 5,
-                 horizon: int = 21,
-                 lookback: int = 252,
+                 horizon: Days = 21,
+                 lookback: Days = 252,
                  max_pool_size: Optional[int] = None,
                  target_return: float = 0.1):
         assert n > 0, "n must be greater than 0"
+        assert lookback > horizon > 0, "Lookback must be greater than horizon and both must be greater than 0"
 
         with open("NeoPortfolio/INDEX_MAP.json", "r") as f:
             self.INDEX_MAP = loads(f.read())
@@ -61,7 +63,7 @@ class nCrEngine:
         self.combination_space = self._compose_combination_space()
         self.ncr_gen = self._get_nCr_generator(self.combination_space, n)
 
-    def _get_components(self, market: str) -> list:
+    def _get_components(self, market: IndexSymbol) -> list[StockSymbol]:
         """
         Get the components of the index.
 
@@ -91,7 +93,7 @@ class nCrEngine:
         return components.tolist()
 
     @staticmethod
-    def _get_nCr_generator(components: list, n: int) -> list:
+    def _get_nCr_generator(components: list[StockSymbol], n: int) -> list[tuple[StockSymbol]]:
         """
         Get all possible nCr combinations of a list of components.
 
@@ -102,7 +104,7 @@ class nCrEngine:
         for comb in combinations(components, n):
             yield comb
 
-    def _get_tickers(self, components: list) -> yf.Tickers:
+    def _get_tickers(self, components: list[StockSymbol]) -> yf.Tickers:
         """
         Get yf.Tickers object from a list of components.
 
@@ -113,7 +115,7 @@ class nCrEngine:
 
         return yf.Tickers(' '.join(components))
 
-    def _get_historical_close(self, lookback: int) -> pd.DataFrame:
+    def _get_historical_close(self, lookback: Days) -> pd.DataFrame:
         """
         Get historical close prices for all components.
 
@@ -139,7 +141,7 @@ class nCrEngine:
 
         return data
 
-    def _get_periodic_returns(self, horizon: int) -> pd.DataFrame:
+    def _get_periodic_returns(self, horizon: Days) -> pd.DataFrame:
         """
         Get periodic returns for all components.
 
@@ -153,7 +155,7 @@ class nCrEngine:
 
         return periodic_returns
 
-    def _get_ewma_expected(self, horizon: int) -> pd.Series:
+    def _get_ewma_expected(self, horizon: Days) -> pd.Series:
         """
         Get the exponentially weighted moving average expected returns.
 
@@ -163,7 +165,7 @@ class nCrEngine:
         ewma_expected = self.periodic_returns.ewm(halflife=horizon).mean().iloc[-1]
         return ewma_expected
 
-    def _get_volatility(self, horizon: int) -> pd.Series:
+    def _get_volatility(self, horizon: Days) -> pd.Series:
         """
         Get the volatility of the components.
 
@@ -197,7 +199,7 @@ class nCrEngine:
         )
         return comb_space_count
 
-    def _compose_combination_space(self) -> list:
+    def _compose_combination_space(self) -> list[StockSymbol]:
         """
         Compose the combination space of all possible nCr combinations of components.
 
@@ -216,7 +218,7 @@ class nCrEngine:
         vol_based = df.loc[df['volatility'] < df['expected_return'], 'volatility'].nsmallest(lo_vol).index
         return list({*ret_based, *vol_based})
 
-    def pass_optimization_params(self):
+    def pass_optimization_params(self) -> tuple[int, Days, Days, float, pd.DataFrame, pd.DataFrame, pd.Series]:
         """
         Pass the optimization parameters to the nCrOptimize object.
 

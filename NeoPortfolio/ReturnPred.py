@@ -10,11 +10,13 @@ import numpy as np
 
 # Typing imports
 from typing import Union
+from .CustomTypes import Days
+
 
 class ReturnPred:
     """Create expected return predictions from historical prices"""
 
-    def __init__(self, data: pd.DataFrame, inv_horizon: int = 21):
+    def __init__(self, data: pd.DataFrame, inv_horizon: Days = 21):
         self.model = RandomForestRegressor()
         self.data = data
         self.inv_horizon = inv_horizon
@@ -67,18 +69,22 @@ class ReturnPred:
         """Train the model on a stock's historical returns. Hyperparameters are not tuned in order to keep the runtime
         low. In case of unacceptable accuracy, the fallback method is an historical EWMA with a span equal to the
         investment horizon (in days). This is an iteration on the traditional return calculation of using the mean return
-        over the data period."""
+        over the data period.
+
+        :param stock_data: A time-series of stock prices or returns.
+        :param comb: Boolean to indicate if the portfolio is part of a combination space from `nCrEngine`.
+        """
 
         success = False
         confidence = 0
-        data, last_pred = self.add_lagged_features(stock_data)
+        data, today_data = self.add_lagged_features(stock_data)
 
         X = data.drop(columns=data.columns[-1])
         y = data[data.columns[-1]]
 
         X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=0)
 
-        # GSCV
+        # Simple Grid-Search
         if not comb:
             param_grid = {
                 'n_estimators': [100, 200],
@@ -102,8 +108,8 @@ class ReturnPred:
 
         confidence = np.round(1 - mean_absolute_percentage_error(y_test, pred), 4)
 
-        #pred last day
-        expected_price = np.round(self.model.predict(last_pred)[0], 2)
+        # Return prediction for the period r_{t:t+inv_horizon}
+        expected_price = np.round(self.model.predict(today_data)[0], 2)
         expected_return = np.round((expected_price - stock_data.iloc[-1]) / stock_data.iloc[-1], 4)
 
         if not success:

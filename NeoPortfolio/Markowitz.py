@@ -12,24 +12,34 @@ import matplotlib.pyplot as plt
 
 import warnings
 
-from .CustomTypes import StockSymbol, Days
+from .CustomTypes import StockSymbol, Days, IndexSymbol
 from typing import Optional, Literal
+from os import PathLike
 
 from .Sentiment import Sentiment
+
 
 class Markowitz:
 
     def __init__(self, portfolio: Portfolio,
-                 market: StockSymbol,
-                 horizon: int = 21,
-                 lookback: int = 252,
+                 market: IndexSymbol,
+                 horizon: Days = 21,
+                 lookback: Days = 252,
                  rf_rate_pa: Optional[float] = None,
-                 api_key_path: str = ...,
-                 api_key_var: str = ...,
+                 api_key_path: Optional[PathLike | str] = ...,
+                 api_key_var: Optional[str] = ...,
                  ) -> None:
 
+        assert horizon > 0, "Horizon must be a positive integer."
+        assert lookback > 0, "Lookback must be a positive integer."
+        assert lookback > horizon, "Lookback must be greater than the horizon."
+        assert rf_rate_pa is None or rf_rate_pa >= 0, "Risk-free rate must be a non-negative float."
+
         # Sentiment Analysis Module
-        self.sentiment = Sentiment(api_key_path=api_key_path, api_key_var=api_key_var)
+        if api_key_var and api_key_path:
+            self.sentiment = Sentiment(api_key_path=api_key_path, api_key_var=api_key_var)
+        else:
+            self.sentiment = None
 
         # Portfolio, market, and environment definition
         self.portfolio: Portfolio = portfolio
@@ -43,7 +53,7 @@ class Markowitz:
             us_bond_10y = us_bond_10y.history(period='1d')['Close']
             rf_rate_pa = us_bond_10y.iloc[-1] / 100
 
-        self.rf = (1 + (rf_rate_pa / 2))**(lookback / 365) - 1 # semi-annual compounding with ACT/365 (approximate for US Treasury Bonds)
+        self.rf = (1 + (rf_rate_pa / 2))**(lookback / 365) - 1  # semi-annual compounding with ACT/365 (approximate for US Treasury Bonds)
 
         # Portfolio data construction
         self.raw_close, self.periodic_return, self.expected_returns, self.volatility = self._construct_data(horizon=horizon, lookback=lookback)
@@ -77,16 +87,13 @@ class Markowitz:
             if expected_returns[stock]['success']:
                 return_dict[stock] = expected_returns[stock]['expected_return']
             else:
-                warnings.warn(f"Model performance for {stock} is low. Falling back to historical EWMA.", category=UserWarning)
+                print(f"Model performance for {stock} is low. Falling back to historical EWMA.")
                 return_dict[stock] = expected_returns[stock]['expected_return'] # EWMA is already calculated if success == False
 
         price_dict = {stock: expected_returns[stock]['expected_price'] for stock in expected_returns.keys()}
         print(f"Expected Prices at {horizon} days:\n{price_dict}")
 
         return_series = pd.Series(return_dict.values(), index=return_dict.keys())
-
-
-
 
         # Calculate periodic returns
         periodic_return = (data - data.shift(horizon)) / data.shift(horizon)
@@ -99,10 +106,11 @@ class Markowitz:
         # Adjust return with sentiment analysis
         sentiment_period = min(30, horizon)
 
-        for stock in self.portfolio:
-            sentiment_score = self.sentiment.get_sentiment(f"{self.names[stock]} Stock", n=10, lookback=sentiment_period)
-            self.portfolio.results['sentiment'][stock] = round(sentiment_score, 4)
-            expected_returns[stock] = expected_returns[stock] * (1 + 0.33 * sentiment_score)  # 33% weight on sentiment
+        if self.sentiment:
+            for stock in self.portfolio:
+                sentiment_score = self.sentiment.get_sentiment(f"{self.names[stock]} Stock", n=10, lookback=sentiment_period)
+                self.portfolio.results['sentiment'][stock] = round(sentiment_score, 4)
+                expected_returns[stock] = expected_returns[stock] * (1 + 0.33 * sentiment_score)  # 33% weight on sentiment
 
         if horizon >= 30:
             warnings.warn(f"Sentiment analysis is done for a maximum period of 30 days due to API limitations."
@@ -160,7 +168,11 @@ class Markowitz:
         """
         betas = []
         for stock in self.periodic_return.columns:
-            b: np.float64 = np.cov(self.periodic_return[stock], self.market_returns)[0][1] / np.var(self.market_returns, ddof=1) # type: ignore
+            try:
+                b: np.float64 = np.cov(self.periodic_return[stock], self.market_returns)[0][1] / np.var(self.market_returns, ddof=1) # type: ignore
+            except ZeroDivisionError:
+                b = 0
+
             self.portfolio.results['beta'][stock] = b.round(4)
             betas.append(b)
         return betas

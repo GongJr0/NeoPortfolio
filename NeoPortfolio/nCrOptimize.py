@@ -1,9 +1,12 @@
+import os.path
+
 from .Portfolio import Portfolio
 from .ReturnPred import ReturnPred
 from .nCrEngine import nCrEngine
 from .Sentiment import Sentiment
-from .PortfolioCache import PortfolioCache
+from .Cache import PortfolioCache
 from .nCrResult import nCrResult
+from .CustomTypes import IndexSymbol, Days
 
 import datetime as dt
 
@@ -25,19 +28,22 @@ from tqdm.auto import tqdm
 class nCrOptimize(nCrEngine):
     """Find the optimal portfolio for a target return in a combination pool created from index components."""
     def __init__(self,
-                 market: str,
+                 market: IndexSymbol,
                  n: int,
                  target_return: float = 0.1,
-                 horizon: int = 21,
-                 lookback: int = 252,
+                 horizon: Days = 21,
+                 lookback: Days = 252,
                  max_pool_size: Optional[int] = None,
-                 api_key_path: Optional[PathLike] = None,
+                 api_key_path: Optional[PathLike | str] = None,
                  api_var_name: Optional[str] = None) -> None:
 
         super().__init__(market, n, horizon, lookback, max_pool_size, target_return)
 
-        self.key_path = api_key_path
+        self.api_key_path = api_key_path
         self.key_var = api_var_name
+
+        if isinstance(api_key_path, PathLike) and not os.path.exists(api_key_path):
+            raise FileNotFoundError(f"File not found: {api_key_path}")
 
         self.portfolio_cache = PortfolioCache()
         self.portfolios = self._get_portfolios()
@@ -73,10 +79,10 @@ class nCrOptimize(nCrEngine):
         ticker = yf.Ticker("^TNX")
         pa_rate = ticker.history(period="1d")["Close"].iloc[0] / 100
 
-        horizon_rate = (1 + pa_rate/2)**(2*(self.horizon/360)) - 1 # Semi-annual compounding with ACT/360 convention
+        horizon_rate = (1 + pa_rate / 2)**(2*(self.horizon / 365)) - 1  # Semi-annual compounding with ACT/365 convention
         return horizon_rate
 
-    def _iteration_optimize(self, portfolio, bounds: tuple[float, float] = (0.0, 1.0)) -> dict[str, Any]:
+    def _iteration_optimize(self, portfolio: Portfolio, bounds: tuple[float, float] = (0.0, 1.0)) -> dict[str, Any]:
         """Optimization function ran in parallel iteration of portfolios.
 
         :param portfolio: Portfolio object
