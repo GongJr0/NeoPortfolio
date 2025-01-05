@@ -1,4 +1,4 @@
-from typing import Union
+from typing import Union, Iterable
 import yfinance as yf
 import math
 
@@ -30,20 +30,19 @@ class Portfolio(tuple):
         return obj
 
     def _stock_results(self, stock: StockSymbol):
-        res = {
+        return {
             'weight': self._results['weights'][stock],
             'expected_return': self._results['expected_returns'][stock],
             'volatility': self._results['volatility'][stock],
             'beta': self._results['beta'][stock],
             'sharpe_ratio': self._results['sharpe_ratio'][stock]
         }
-        return res
 
     def __getitem__(self, key: Union[int, StockSymbol]):
         if isinstance(key, int):
             return super().__getitem__(key)
 
-        elif isinstance(key, StockSymbol.__supertype__):
+        elif isinstance(key, StockSymbol):
             return self._stock_results(key)
 
     @property
@@ -64,5 +63,6 @@ class Portfolio(tuple):
         return self._weights
 
     @weights.setter
-    def weights(self, value):
+    def weights(self, value: Iterable[float]):
+        assert len(value) == len(self), f"Invalid number of weights: {len(value)}, must be {len(self)}"
         self._weights = value

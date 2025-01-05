@@ -4,7 +4,7 @@ import os
 import warnings
 from dotenv import load_dotenv
 
-from .SentimentCache import SentimentCache
+from .Cache import SentimentCache
 
 from newsapi import NewsApiClient
 
@@ -15,12 +15,15 @@ from transformers import BertTokenizer, BertForSequenceClassification
 
 from .CustomTypes import Days
 
+
 class Sentiment:
     """
     FinBERT Sentiment Analysis for Financial News.
     """
     def __init__(self, api_key_path: os.PathLike, api_key_var: str) -> None:
         warnings.filterwarnings("ignore")
+        if not os.path.exists(api_key_path):
+            raise FileNotFoundError(api_key_path)
 
         self.set_api_key(api_key_path)
 
@@ -34,14 +37,15 @@ class Sentiment:
         self.cache = self._init_cache()
 
     @staticmethod
-    def set_api_key(path: os.PathLike) -> None:
+    def set_api_key(path: os.PathLike | str) -> None:
         if not str(path).split('.')[-1] == 'env':
             raise ValueError("Invalid file type. Must be a .env file")
+
         load_dotenv(path)
 
     @staticmethod
-    def _init_cache(name: str = 'sentiment.db', exp_after: int = 3600) -> SentimentCache:
-        return SentimentCache(name, exp_after)
+    def _init_cache(name: str = 'sentiment.db', exp_seconds: int = 3600) -> SentimentCache:
+        return SentimentCache(name, exp_seconds)
 
     def search(self, query: str, *, n: int, lookback: Days) -> list:
         key = os.getenv(self.key_var)
@@ -56,7 +60,9 @@ class Sentiment:
                                           page_size=n)
 
         filtered_articles = []
-        neutral_string = 'confident.' # Evaluates to a sentiment polarity of \approx 0.0 (neutral)
+
+        neutral_string = 'confident.' # Evaluates to a sentiment polarity of 0.0 (neutral). 200 IQ solution.
+
         for article in articles['articles']:
             if (article['description'] is None or article['description'] == '') and \
                     (article['title'] is None or article['title'] == ''):
@@ -72,9 +78,15 @@ class Sentiment:
 
         desc = [article['description'] + ' ' + article['title'] for article in filtered_articles]
 
+        if not desc:
+            raise ValueError("No articles found for the given query")
+
         return desc
 
     def get_score_all(self, text: str) -> dict:
+
+        assert text and isinstance(text, str), "Input must be a non-empty string"
+
         inputs = self.tokenizer(text,
                                 return_tensors='pt',
                                 padding='max_length',
@@ -111,7 +123,7 @@ class Sentiment:
             score = self.compose_sentiment(desc)
             sentiments.append(score)
 
-        if sentiments == []:
+        if not sentiments:
             self.cache.cache(cache_query, 0.0)
             return .5  # Neutral if no sentiment found
 
