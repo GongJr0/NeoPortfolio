@@ -32,7 +32,7 @@ best portfolio (for a target return) to construct from the constituents of a mar
 iterative optimization algorithm, NeoPortfolio can find the weights __and__ stocks to get the lowest possible risk for a given 
 return.
 
-## What we don't fix
+## What NeoPortfolio doesn't fix
 ### Fluctuating Portfolio Weights
 If you have some experience with MPT you'll know that weights of the same portfolio can vary extremely on a day-to-day basis.
 The reason behind this is that MPT always returns the best possible portfolio. Naturally, a rational investor following
