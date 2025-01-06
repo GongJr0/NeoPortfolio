@@ -150,8 +150,6 @@ class Markowitz:
 
         periodic_return = periodic_return.loc[common_index]
 
-
-
         return periodic_return, volatility, rm
 
     def _covariance_matrix(self) -> pd.DataFrame:

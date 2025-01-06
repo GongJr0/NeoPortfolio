@@ -102,7 +102,7 @@ using numerical indices. Additionally, using stock symbols as string indices
 will return relevant information about the stock.
 
 #### Attributes
-- `results`: A dictionary of dictionaries containing stock information.
+- `results`: A nested `dict` containing stock information.
 
         The first level of keys are metrics: 
         - ['weights', 'expected_returns', 'volatility', 'beta', 'sharpe_ratio', 'sentiment']
@@ -111,7 +111,7 @@ will return relevant information about the stock.
 - `optimum_portfolio_info`: A dictionary containing summary information regarding the optimized portfolio.
 
         The keys are:
-        - ['target_return', 'target_volatiltiy', `weights`, `risk_per_return`]
+        - ['target_return', 'target_volatiltiy','weights', 'risk_per_return']
 
 - `weights`: A dictionary of stock symbols and their respective weights in the portfolio.
 - `tickers`: A `yfinance.Tickers` object containing initialized with stocks passed to `Portfolio`.
