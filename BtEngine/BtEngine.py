@@ -37,20 +37,22 @@ class BtEngine:
         # Processed signals dict
         self.buy = None
         self.sell = None
+        self.total_buys = None
+        self.total_sells = None
 
-
+    @staticmethod
+    def _arg_indexer(arg, loc):
+        if isinstance(arg, pd.DataFrame):
+            return arg[loc]
+        else:
+            return arg
 
     def _get_args(self):
         out = []
         for arg in self.arg_signature:
             out.append(self.arg_map[arg][0](*self.arg_map[arg][1]))
         return out
-    @staticmethod
-    def _arg_indexer(arg, locator):
-        if isinstance(arg, pd.DataFrame) or isinstance(arg, pd.Series):
-            return arg[locator]
-        else:
-            return arg
+
 
     def _ma(self, window):
         return self.price_data.rolling(window=window).mean()
@@ -78,7 +80,10 @@ class BtEngine:
         buy = {self.dt_index[key].strftime(format='%d %b, %y - %H:%M'): value for key, value in buy.items() if value}
         sell = {self.dt_index[key].strftime(format='%d %b, %y - %H:%M'): value for key, value in sell.items() if value}
 
-        return buy, sell
+        total_buys = sum([len(b) for b in buy.values()])
+        total_sells = sum([len(s) for s in sell.values()])
+
+        return buy, sell, total_buys, total_sells
 
     def _trade(self,
                stock_name: str,
@@ -135,10 +140,10 @@ class BtEngine:
                 self._trade(stock, price_data.loc[i, stock], signals[i][stock])
 
         self._all_signals = signals
-        self.buy, self.sell = self._process_signals()
+        self.buy, self.sell, self.total_buys, self.total_sells = self._process_signals()
 
         asset_distribution = {
-            'Liquid': self.cash,
+            'Liquid ($)': self.cash.__round__(2),
             'Holdings': self.holdings
         }
 
@@ -148,7 +153,7 @@ class BtEngine:
         cash_equivalent = self.cash + np.sum(assets * last_prices)
 
         out = {
-            'Total Value': cash_equivalent,
+            'Total Value ($)': cash_equivalent.__round__(2),
             'Asset Distribution': asset_distribution
         }
 

@@ -82,7 +82,7 @@ class BtStrategy:
 
         if rsi.iloc[index] > 70:
             return -1
-        elif rsi.iloc[index] < 30:
+        elif rsi.iloc[index] < 50:
             return 1
         else:
             return 0
