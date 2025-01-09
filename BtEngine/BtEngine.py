@@ -12,7 +12,7 @@ class BtEngine:
         self.cash: int = 100_000
 
         self.min_trade_price = 1000  # At least 1000$ per transaction
-        self.trade_proportion = 0.1  # baseline trade proportion: 10% of liquid assets
+        self.max_trade_proportion = 0.33  # 33% of the cash can be used for a single trade
 
         self.price_data = portfolio_close
         self.dt_index = portfolio_close.index
@@ -71,10 +71,10 @@ class BtEngine:
     def _process_signals(self):
         assert self._all_signals is not None, "No signals to process"
 
-        buy = {index: [stock[0] for stock in signal.items() if stock[1] == 1]
+        buy = {index: [(stock[0], stock[1][1]) for stock in signal.items() if stock[1][0] == 1]
                for index, signal in self._all_signals.items()}
 
-        sell = {index: [stock[0] for stock in signal.items() if stock[1] == -1] for index,
+        sell = {index: [(stock[0], stock[1][1]) for stock in signal.items() if stock[1][0] == -1] for index,
                 signal in self._all_signals.items()}
 
         buy = {self.dt_index[key].strftime(format='%d %b, %y - %H:%M'): value for key, value in buy.items() if value}
@@ -88,28 +88,29 @@ class BtEngine:
     def _trade(self,
                stock_name: str,
                stock_price: float,
-               signal: Literal[-1, 0, 1]) -> None:
+               signal: Literal[-1, 0, 1],
+               signal_strength: float) -> None:
 
         if signal == 1:
-            expected_trade = self.trade_proportion * self.cash
-            min_trade = self.min_trade_price
-            traded_cash = min(expected_trade, min_trade, self.cash)  # Check for cash
-                                                                     # balance before buy
+            trade_amount = self.max_trade_proportion * self.cash * signal_strength
 
-            self.cash -= traded_cash
-            self.holdings[stock_name] += traded_cash / stock_price
+            if trade_amount >= self.cash:
+                self.holdings[stock_name] += self.cash / stock_price
+                self.cash = 0
+
+            else:
+                self.holdings[stock_name] += trade_amount / stock_price
+                self.cash -= trade_amount
 
         elif signal == -1:
-            expected_trade = self.trade_proportion * self.holdings[stock_name] * stock_price
-            min_trade = self.min_trade_price
-            traded_cash = min(expected_trade, min_trade, self.holdings[stock_name] * stock_price)
-            traded_stock = traded_cash / stock_price
+            trade_amount = signal_strength * self.holdings[stock_name]
 
-            if self.holdings[stock_name] < traded_stock:
-                traded_cash = self.holdings[stock_name] * stock_price
-
-            self.cash += traded_cash
-            self.holdings[stock_name] -= traded_stock
+            if trade_amount <= self.holdings[stock_name]:
+                self.holdings[stock_name] -= trade_amount
+                self.cash += trade_amount * stock_price
+            else:
+                self.cash += self.holdings[stock_name] * stock_price
+                self.holdings[stock_name] = 0
 
         elif signal == 0:
             pass
@@ -122,6 +123,7 @@ class BtEngine:
         price_data = self.price_data.reset_index(drop=True)
         strat = self.strat
         objective = strat.objective
+        scaler = strat.signal_scaler
 
         args = self._get_args()
 
@@ -129,6 +131,7 @@ class BtEngine:
             stock: 0 for stock in price_data.columns
         }
         signals = {}
+
         for i in price_data.index:
             signal = signal_format.copy()
             for stock in signal_format.keys():
@@ -137,7 +140,9 @@ class BtEngine:
 
         for i in signals.keys():
             for stock in signals[i].keys():
-                self._trade(stock, price_data.loc[i, stock], signals[i][stock])
+                sig = signals[i][stock][0]
+                mag = signals[i][stock][1]
+                self._trade(stock, price_data.loc[i, stock], sig, scaler(sig, mag))
 
         self._all_signals = signals
         self.buy, self.sell, self.total_buys, self.total_sells = self._process_signals()
