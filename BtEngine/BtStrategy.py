@@ -21,8 +21,9 @@ class BtStrategy:
         }
 
         self.signal_scalers = {
-            self._rsi_ma: self.rsi_strength_exp,
-            self._rsi_ewma: self.rsi_strength_exp
+            self._crossover: self._no_scale,
+            self._rsi_ma: self._rsi_strength_exp,
+            self._rsi_ewma: self._rsi_strength_exp
         }
 
         self.objective = self.func_map[self.strat]
@@ -40,7 +41,7 @@ class BtStrategy:
                   lma: pd.DataFrame,
                   *,
                   index: int  # Enumerate date indices to support iloc. BtEngine._iterate won't traverse DateIndex
-                  ) -> int:
+                  ) -> tuple[int, int]:
 
         curr_sma = sma.iloc[index]
         curr_lma = lma.iloc[index]
@@ -49,19 +50,20 @@ class BtStrategy:
         prev_lma = lma.iloc[index-1]
 
         if curr_sma > curr_lma and prev_sma <= prev_lma:
-            return 1
+            return 1, 1
         elif curr_sma < curr_lma and prev_sma >= prev_lma:
-            return -1
+            return -1, 1
         else:
-            return 0
+            return 0, 0
 
-    @staticmethod
     def _rsi_ma(
+            self,
             diff: pd.DataFrame,
             window: int,
             *,
             index: int
-            ) -> tuple[float, float]:
+            ) -> tuple[int, float]:
+
         buy = self.rsi_buy_threshold
         sell = self.rsi_sell_threshold
 
@@ -82,13 +84,13 @@ class BtStrategy:
         else:
             return 0, 0
 
-    @staticmethod
     def _rsi_ewma(
+            self,
             diff: pd.DataFrame,
             window: int,
             *,
             index: int
-    ) -> tuple[float, float]:
+    ) -> tuple[int, float]:
 
         buy = self.rsi_buy_threshold
         sell = self.rsi_sell_threshold
@@ -109,7 +111,11 @@ class BtStrategy:
         else:
             return 0, rsi.iloc[index]
 
-    def rsi_strength_linear(self, signal: int, score: float) -> float:
+    @staticmethod
+    def _no_scale(signal: int, score: float) -> float:
+        return 1
+
+    def _rsi_strength_lin(self, signal: int, score: float) -> float:
 
         buy = self.rsi_buy_threshold
         sell = self.rsi_sell_threshold
@@ -123,7 +129,7 @@ class BtStrategy:
         elif signal == 0:
             return 0
 
-    def rsi_strength_exp(self, signal: int, score: float) -> float:
+    def _rsi_strength_exp(self, signal: int, score: float) -> float:
 
         buy = self.rsi_buy_threshold
         sell = self.rsi_sell_threshold
@@ -141,7 +147,7 @@ class BtStrategy:
         elif signal == 0:
             return 0
 
-    def rsi_strength_log(self, signal: int, score: float) -> float:
+    def _rsi_strength_log(self, signal: int, score: float) -> float:
 
         buy = self.rsi_buy_threshold
         sell = self.rsi_sell_threshold
@@ -160,8 +166,6 @@ class BtStrategy:
 
         elif signal == 0:
             return 0
-
-
 
     @property
     def arg_signature(self) -> list:

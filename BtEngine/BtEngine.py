@@ -90,27 +90,34 @@ class BtEngine:
                stock_price: float,
                signal: Literal[-1, 0, 1],
                signal_strength: float) -> None:
+        if any([pd.isna(signal), pd.isna(stock_price), pd.isna(signal_strength)]):
+            return
 
         if signal == 1:
-            trade_amount = self.max_trade_proportion * self.cash * signal_strength
+            if self.cash <= 0:
+                return
+
+            trade_amount = self.max_trade_proportion * signal_strength * self.cash
 
             if trade_amount >= self.cash:
                 self.holdings[stock_name] += self.cash / stock_price
                 self.cash = 0
-
             else:
                 self.holdings[stock_name] += trade_amount / stock_price
                 self.cash -= trade_amount
 
         elif signal == -1:
-            trade_amount = signal_strength * self.holdings[stock_name]
+            if self.holdings[stock_name] <= 0:
+                return
 
-            if trade_amount <= self.holdings[stock_name]:
-                self.holdings[stock_name] -= trade_amount
-                self.cash += trade_amount * stock_price
-            else:
+            trade_amount = self.max_trade_proportion * signal_strength * self.holdings[stock_name]
+
+            if trade_amount >= self.holdings[stock_name]:
                 self.cash += self.holdings[stock_name] * stock_price
                 self.holdings[stock_name] = 0
+            else:
+                self.cash += trade_amount * stock_price
+                self.holdings[stock_name] -= trade_amount
 
         elif signal == 0:
             pass
