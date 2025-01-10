@@ -19,7 +19,7 @@ nav:
 extra:
   article_nav_bottom: true
   logo: logo.png
-  version: v1.2.0
+  version: v1.3.0
 
 markdown_extensions:
   - md4mathjax

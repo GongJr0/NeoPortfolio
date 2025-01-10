@@ -7,24 +7,35 @@ from datetime import datetime as dt
 
 from typing import Optional, Literal, Generator
 
-class BtEngine:
-    def __init__(self, portfolio_close: pd.DataFrame, strategy: BtStrategy):
-        self.cash: int = 100_000
 
-        self.min_trade_price = 1000  # At least 1000$ per transaction
+class BtEngine:
+    def __init__(self,
+                 portfolio_close: pd.DataFrame,
+                 strategy: BtStrategy,
+                 *,
+                 # Supplementary data for strategies
+                 hi_lo: Optional[tuple[pd.DataFrame, pd.DataFrame]] = None,
+                 vol: Optional[pd.DataFrame] = None,
+                 ) -> None:
+
+        self.cash: float = 100_000.0
+
         self.max_trade_proportion = 0.33  # 33% of the cash can be used for a single trade
 
         self.price_data = portfolio_close
         self.dt_index = portfolio_close.index
+
+        self.hi, self.lo = hi_lo
+        self.vol = vol
 
         self.sma_period = 16
         self.lma_period = 128
 
         self._iter = self._iterate()
         self.strat = strategy
-        self.arg_signature = strategy.arg_signature
+        self._arg_signature = strategy.arg_signature
 
-        self.arg_map = {
+        self._arg_map = {
             'sma': [self._ma, [self.sma_period]],
             'lma': [self._ma, [self.lma_period]],
             'diff': [self._diff, []],
@@ -49,10 +60,9 @@ class BtEngine:
 
     def _get_args(self):
         out = []
-        for arg in self.arg_signature:
-            out.append(self.arg_map[arg][0](*self.arg_map[arg][1]))
+        for arg in self._arg_signature:
+            out.append(self._arg_map[arg][0](*self._arg_map[arg][1]))
         return out
-
 
     def _ma(self, window):
         return self.price_data.rolling(window=window).mean()
@@ -125,7 +135,7 @@ class BtEngine:
         else:
             raise ValueError("Invalid signal value")
 
-    def run(self, strat: Literal['crossover'] = 'crossover'):
+    def run(self) -> dict[str, float | dict]:
 
         price_data = self.price_data.reset_index(drop=True)
         strat = self.strat

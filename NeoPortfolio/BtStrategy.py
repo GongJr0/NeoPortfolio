@@ -4,9 +4,11 @@ import pandas as pd
 from math import log
 
 from typing import Literal
+
+
 class BtStrategy:
     def __init__(self,
-                 strat: Literal['crossover']  # More literals will be added as the strategies are implemented
+                 strat: Literal['crossover', 'rsi_ma', 'rsi_ewma']  # More literals will be added as the strategies are implemented
                  ) -> None:
         self.strat = strat
         self._arg_signature = {
@@ -14,20 +16,20 @@ class BtStrategy:
             'rsi_ma': ['diff', 'window'],
             'rsi_ewma': ['diff', 'window']
         }
-        self.func_map = {
+        self._func_map = {
             'crossover': self._crossover,
             'rsi_ma': self._rsi_ma,
             'rsi_ewma': self._rsi_ewma
         }
 
-        self.signal_scalers = {
+        self._signal_scalers = {
             self._crossover: self._no_scale,
             self._rsi_ma: self._rsi_strength_exp,
             self._rsi_ewma: self._rsi_strength_exp
         }
 
-        self.objective = self.func_map[self.strat]
-        self.signal_scaler = self.signal_scalers[self.objective]
+        self.objective = self._func_map[self.strat]
+        self.signal_scaler = self._signal_scalers[self.objective]
 
         self.rsi_buy_threshold = 30
         self.rsi_sell_threshold = 70
