@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  
+  
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    
+    <meta name="author" content="Ege Güney Kıymaç">
+    <link rel="canonical" href="https://gongjr0.github.io/NeoPortfolio/BtEngine/">
+    <link rel="shortcut icon" href="../img/favicon.ico">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0" />
+    <title>BtEngine - </title>
+    <link href="../css/bootstrap-3.3.7.min.css" rel="stylesheet">
+    <link href="../css/font-awesome-4.7.0.css" rel="stylesheet">
+    <link href="../css/base.css" rel="stylesheet">
+    <link rel="stylesheet" href="../css/highlight.css">
+    <!-- HTML5 shim and Respond.js IE8 support of HTML5 elements and media queries -->
+    <!--[if lt IE 9]>
+        <script src="https://oss.maxcdn.com/libs/html5shiv/3.7.0/html5shiv.js"></script>
+        <script src="https://oss.maxcdn.com/libs/respond.js/1.3.0/respond.min.js"></script>
+    <![endif]-->
+
+    <script src="../js/jquery-3.2.1.min.js"></script>
+    <script src="../js/bootstrap-3.3.7.min.js"></script>
+    <script src="../js/highlight.pack.js"></script>
+    
+    <base target="_top">
+    <script>
+      var base_url = '..';
+      var is_top_frame = false;
+        
+        var pageToc = [
+          {title: "BtEngine", url: "#_top", children: [
+              {title: "__init__ Arguments", url: "#__init__-arguments" },
+              {title: "Attributes", url: "#attributes" },
+              {title: "Methods", url: "#methods" },
+          ]},
+        ];
+
+    </script>
+    <script src="../js/base.js"></script> 
+</head>
+
+<body>
+<script>
+if (is_top_frame) { $('body').addClass('wm-top-page'); }
+</script>
+
+
+
+<div class="container-fluid wm-page-content">
+  <a name="_top"></a>
+    
+
+    
+
+    <h1 id="btengine"><code>BtEngine</code></h1>
+<p><code>BtEngine</code> is a backtesting module designed to accept close prices outputted by <code>yfinance.Ticker</code> 
+or <code>yfinance.Tickers</code>. It employs a strategy stored in <code>BtStrategy</code> and iterates over the historical
+to test the performance of a portfolio when actively trading.</p>
+<h2 id="__init__-arguments"><code>__init__</code> Arguments</h2>
+<ul>
+<li><code>portfolio_close -&gt; pd.DataFrame</code>: Close prices returned from <code>yfinance</code></li>
+<li><code>strategy -&gt; BtStrategy</code>: BtStrategy object to handle signal generation</li>
+<li><code>hi_lo -&gt; tuple[pandas.DataFrame, pandas.DataFrame]</code>: Tuple of high and low price data from <code>yfinance</code></li>
+<li><code>vol -&gt; pandas.DataFrame</code>: Volume data from <code>yfinance</code></li>
+</ul>
+<h2 id="attributes">Attributes</h2>
+<ul>
+<li><code>cash -&gt; float</code>: Liquid assets (initial balance = 100,000)</li>
+<li><code>max_trade_proportion -&gt; float</code>: Maximum trade amount as a percentage of total holdings (default = 0.33)</li>
+<li><code>price_data -&gt; pandas.DataFrame</code>: Close prices from <code>yfinance</code></li>
+<li><code>dt_index: pandas.DateIndex</code>: Default index of the close price data</li>
+<li><code>hi -&gt; pandas.DataFrame</code>: High prices from <code>yfinance</code></li>
+<li><code>lo -&gt; pandas.DataFrame</code>: Low prices from <code>yfinance</code></li>
+<li><code>vol -&gt; pandas.DataFrame</code>: Volume data from <code>yfinance</code></li>
+<li><code>sma_period -&gt; int</code>: Window for Short-Moving-Average (SMA)</li>
+<li><code>lma_period -&gt; int</code>: Window for Long-Moving-Average (LMA)</li>
+<li><code>strat: BtStrategy</code>: Strategy container for signal generation</li>
+<li><code>holdings: dict[str, float]</code>: Holdings for each stock (in shares)</li>
+<li><code>buy -&gt; dict[str, list[tuple[str, float]]]</code>: dict of each period (keys) where a buy signal was produced and a list tuples with format (stock_that_produced_buy_sig, strat_score)</li>
+<li><code>sell -&gt; dict[str, list[tuple[str, float]]]</code>: dict of each period (keys) where a sell signal was produced and a list tuples with format (stock_that_produced_buy_sig, strat_score)</li>
+<li><code>total_buys -&gt; int</code>: Count of total buy signals</li>
+<li><code>total_sells -&gt; int</code>: Count of total sell signals</li>
+</ul>
+<h2 id="methods">Methods</h2>
+<h3 id="run"><code>run</code></h3>
+<p>Run the engine to perform iterative backtesting with the pre-determined strategy</p>
+<p><strong>Params:</strong>
+- None</p>
+<p><strong>Returns:</strong></p>
+<ul>
+<li><code>dict[str, float | dict]</code>: dict containing post-run portfolio value in USD, total liquid assets,
+and asset distribution as a dict of stocks and their respective holdings at the end of the run.</li>
+</ul>
+
+  <br>
+    
+
+    <br>
+</div>
+
+<footer class="container-fluid wm-page-content">
+  <p>Documentation built with <a href="https://www.mkdocs.org/">MkDocs</a> using <a href="https://github.com/gristlabs/mkdocs-windmill">Windmill</a> theme by Grist Labs.</p>
+</footer>
+
+</body>
+</html>
