@@ -156,7 +156,7 @@ class BtStrategy:
             return 1 / (1 + np.exp(k * (score - buy_reference)))
 
         elif signal == -1:
-            return -1 / (1 + np.exp(-k * (score - sell_reference)))
+            return 1 / (1 + np.exp(k * (sell_reference - score)))
             
         elif signal == 0:
             return 0
