@@ -56,7 +56,7 @@ class BtStrategy:
         elif curr_sma < curr_lma and prev_sma >= prev_lma:
             return -1, 1
         else:
-            return 0, 0
+            return 0, 1
 
     def _rsi_ma(
             self,
