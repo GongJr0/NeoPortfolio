@@ -1,4 +1,4 @@
-from BtStrategy import BtStrategy
+from .BtStrategy import BtStrategy
 
 import pandas as pd
 import numpy as np
@@ -25,8 +25,11 @@ class BtEngine:
         self.price_data = portfolio_close
         self.dt_index = portfolio_close.index
 
-        self.hi, self.lo = hi_lo
-        self.vol = vol
+        if hi_lo:
+            self.hi, self.lo = hi_lo
+
+        if vol:
+            self.vol = vol
 
         self.sma_period = 16
         self.lma_period = 128
