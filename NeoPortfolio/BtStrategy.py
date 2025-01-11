@@ -100,8 +100,8 @@ class BtStrategy:
         gain = diff.where(diff > 0, 0)
         loss = -diff.where(diff < 0, 0)
 
-        avg_gain = gain.ewm(span=window, adjust=False).mean()
-        avg_loss = loss.ewm(span=window, adjust=False).mean()
+        avg_gain = gain.ewm(span=window, adjust=False, min_periods=0).mean()
+        avg_loss = loss.ewm(span=window, adjust=False, min_periods=0).mean()
 
         rs = avg_gain / avg_loss
         rsi = 100 - (100 / (1 + rs))
