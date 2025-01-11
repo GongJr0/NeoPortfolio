@@ -137,38 +137,30 @@ class BtStrategy:
         sell = self.rsi_sell_threshold
 
         if signal == 1:
-            upper = np.exp(-0.05*(score-buy))
-            lower = np.exp(-0.05*(0-buy))
-            return upper/lower
+            return np.exp(((buy - score)/buy) - 1) / (np.exp(1) - 1)
 
         elif signal == -1:
-            upper = np.exp(-0.05*(sell-score))
-            lower = np.exp(-0.05*(sell-100))
-            return upper/lower
-
+            return - np.exp(((score - sell)/(100 - sell)) - 1) / (np.exp(1) - 1)
+        
         elif signal == 0:
             return 0
 
-    def _rsi_strength_log(self, signal: int, score: float) -> float:
+    def _rsi_strength_log(self, signal: int, score: float, k=0.1) -> float:
 
         buy = self.rsi_buy_threshold
         sell = self.rsi_sell_threshold
+        buy_reference = buy / 2
+        sell_reference = sell + (100 - sell) / 2
 
         if signal == 1:
-            upper = log(1 + (buy - score)/buy)
-            lower = log(2)
-
-            return upper/lower
+            return 1 / (1 + np.exp(k * (score - buy_reference)))
 
         elif signal == -1:
-            upper = log(1 + (score-sell)/(100-sell))
-            lower = log(2)
-
-            return upper/lower
-
+            return -1 / (1 + np.exp(-k * (score - sell_reference)))
+            
         elif signal == 0:
             return 0
-
+        
     @property
     def arg_signature(self) -> list:
         return self._arg_signature[self.strat]
