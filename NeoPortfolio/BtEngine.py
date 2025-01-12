@@ -1,9 +1,11 @@
 from .BtStrategy import BtStrategy
+from .BtStateRecord import record_state
 
 import pandas as pd
 import numpy as np
 
-from datetime import datetime as dt
+from contextlib import contextmanager
+
 
 from typing import Optional, Literal, Generator
 
@@ -17,6 +19,8 @@ class BtEngine:
                  hi_lo: Optional[tuple[pd.DataFrame, pd.DataFrame]] = None,
                  vol: Optional[pd.DataFrame] = None,
                  ) -> None:
+
+        self.history = None
 
         self.cash: float = 100_000.0
 
@@ -54,6 +58,9 @@ class BtEngine:
         self.total_buys = None
         self.total_sells = None
 
+        self.raw_signals = {}
+        self.cash_history = {}
+
     @staticmethod
     def _arg_indexer(arg, loc):
         if isinstance(arg, pd.DataFrame):
@@ -68,7 +75,7 @@ class BtEngine:
         return out
 
     def _ma(self, window):
-        return self.price_data.rolling(window=window).mean()
+        return self.price_data.rolling(window=window, min_periods=0).mean()
 
     def _diff(self):
         return self.price_data.diff()
@@ -139,31 +146,44 @@ class BtEngine:
             raise ValueError("Invalid signal value")
 
     def run(self) -> dict[str, float | dict]:
-
         price_data = self.price_data.reset_index(drop=True)
         strat = self.strat
         objective = strat.objective
         scaler = strat.signal_scaler
 
         args = self._get_args()
-
-        signal_format = {
-            stock: 0 for stock in price_data.columns
-        }
+        signal_format = {stock: 0 for stock in price_data.columns}
         signals = {}
 
-        for i in price_data.index:
-            signal = signal_format.copy()
-            for stock in signal_format.keys():
-                signal[stock] = objective(*[self._arg_indexer(arg, stock) for arg in args], index=i)
-            signals[i] = signal
+        with record_state() as recorder:
+            for i in price_data.index:
+                # Calculate signals
+                signal = signal_format.copy()
+                for stock in signal_format.keys():
+                    signal[stock] = objective(*[self._arg_indexer(arg, stock) for arg in args], index=i)
+                signals[i] = signal
 
-        for i in signals.keys():
-            for stock in signals[i].keys():
-                sig = signals[i][stock][0]
-                mag = signals[i][stock][1]
-                self._trade(stock, price_data.loc[i, stock], sig, scaler(sig, mag))
+                # Execute trades
+                current_signals = {}
+                for stock in signals[i].keys():
+                    sig = signals[i][stock][0]
+                    mag = signals[i][stock][1]
+                    current_signals[stock] = (sig, mag)
+                    self._trade(stock, price_data.loc[i, stock], sig, scaler(sig, mag))
 
+                # Record state
+                recorder.record(
+                    iteration=i,
+                    cash=self.cash,
+                    holdings=self.holdings,
+                    signals=current_signals,
+                    current_prices=price_data.loc[i]
+                )
+
+        # Store recorded history in instance
+        self.history = recorder.get_history()
+
+        # Rest of the original method
         self._all_signals = signals
         self.buy, self.sell, self.total_buys, self.total_sells = self._process_signals()
 
@@ -174,7 +194,6 @@ class BtEngine:
 
         last_prices = price_data.iloc[-1]
         assets = list(self.holdings.values())
-
         cash_equivalent = self.cash + np.sum(assets * last_prices)
 
         out = {
