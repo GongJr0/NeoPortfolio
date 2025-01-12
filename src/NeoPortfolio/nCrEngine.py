@@ -36,6 +36,7 @@ class nCrEngine:
 
         curr_dir = os.path.dirname(os.path.abspath(__file__))
         idx_map = curr_dir + "/INDEX_MAP.json"
+
         with open(idx_map, "r") as f:
             self.INDEX_MAP = loads(f.read())
 

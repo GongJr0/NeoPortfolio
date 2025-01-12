@@ -100,7 +100,7 @@ class nCrOptimize(nCrEngine):
         return_preds = ReturnPred(historical_close, self.horizon).all_stocks_pred(comb=True)
         expected_returns = np.array([return_dict['expected_return'] for return_dict in return_preds.values()])
 
-        if self.key_path and self.key_var and self.sentiment_analysis:
+        if self.api_key_path and self.key_var and self.sentiment_analysis:
             sentiment = Sentiment(self.key_path, self.key_var)
             sentiment_period = min(30, self.horizon)
 
