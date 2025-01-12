@@ -5,10 +5,12 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "NeoPortfolio"
 version = "1.3.0"
-description = "An extended version of traditional portfolio optimization"
+description = "Portfolio Selection, Optimization, and backtesting library with sentiment analysis and ML features"
 authors = [
-    {name = "Ege Güney Kıymaç", email = "guneykiymac@gmail.com"}
+    {name = "Ege Güney Kıymaç", email = "guneykiymac@gmail.com"},
+    {name = "Cem Köymen", email = "cemkoymen5@gmail.com"}
 ]
+
 readme = "README.md"
 license = {file = "LICENSE"}
 dependencies = [

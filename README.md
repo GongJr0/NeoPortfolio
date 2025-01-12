@@ -18,9 +18,9 @@
 
 ## 🌟 Highlights
 
-- Utilize MPT with added ML features
-- Automatically select the best portfolio from a market
-- Generate HTML reports detailing portfolios
+- Combine Modern Portfolio Theory (MPT) with machine learning to optimize portfolios.
+- Select the best portfolio from a given market.
+- Auto-generate detailed, shareable HTML reports summarizing portfolio performance.
 
 
 ## ℹ️ Overview
@@ -29,24 +29,27 @@ in portfolio selection and management by maintaining simplicity in its user-faci
 portfolio or let the package automatically select the best portfolio; either way, the results are one function call
 away!
 ### ✍️ Authors
-For now, just me! Güney Kıymaç. A finance student and a self-taught data science enthusiast.  Contributions and suggestions
-are always welcome. 
+
+#### Güney Kıymaç
+I'm a Finance student and data science enthusiast! I developed NeoPortfolio to demonstrate my expertise through a project
+with real-world applications, as opposed to pre-designed portfolio projects often found in courses.
 
 ## 🚀 Usage
 As mentioned, the package is designed for simple use. Define your investment preferences on class declaration, and
 make a single function call to get the results.
 
 ```python
-from NeoPortfolio import nCrOptimize
+from src.NeoPortfolio import nCrOptimize
+
 opt = nCrOptimize(
-  market="^GSPC", # S&P 500
-  n=5, # Number of assets in the portfolio
-  target_return=0.1,
-  horizon=21,
-  lookback=252,
-  max_pool_size=100, # Maximum number of portfolios to consider
-  api_key_path="path/to/your/api/key.env", # NewsAPI key (has free tier)
-  api_var_name="YOU_KEY_VAR"
+    market="^GSPC",  # S&P 500
+    n=5,  # Number of assets in the portfolio
+    target_return=0.1,
+    horizon=21,
+    lookback=252,
+    max_pool_size=100,  # Maximum number of portfolios to consider
+    api_key_path="path/to/your/api/key.env",  # NewsAPI key (has free tier)
+    api_var_name="YOU_KEY_VAR"
 )
 opt.optimize_space(bounds=(0.05, 0.7))
 ```
@@ -57,9 +60,9 @@ NeoPortfolio is available on PyPI, so you can access it with `pip`. __Python 3.1
 ```bash
 python -m pip install NeoPortfolio
 ```
-Dependencies will be installed during the pip installation process but PyTorch can cause errors depending on your system and 
+Dependencies are installed during the pip installation process but PyTorch can cause errors depending on your system and 
 environment. If you encounter any issues, please refer to the [PyTorch installation guide](https://pytorch.org/get-started/locally/).
-You only the CPU compute platform and `torchvision` or `torchaudio` are not required for this package. 
+You only need the CPU compute platform and `torchvision` or `torchaudio` are not required for this package. 
 (The commands copied from the guide will install all 3 packages unless you remove them.)
 
 ## 💭 Feedback and Contributing
