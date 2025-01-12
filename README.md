@@ -39,7 +39,7 @@ As mentioned, the package is designed for simple use. Define your investment pre
 make a single function call to get the results.
 
 ```python
-from src.NeoPortfolio import nCrOptimize
+from NeoPortfolio import nCrOptimize
 
 opt = nCrOptimize(
     market="^GSPC",  # S&P 500
