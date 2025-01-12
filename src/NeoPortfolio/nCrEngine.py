@@ -13,6 +13,8 @@ from bs4 import BeautifulSoup
 from io import StringIO
 import datetime as dt
 
+import os
+
 from typing import Optional
 
 from scipy.optimize import minimize
@@ -32,7 +34,9 @@ class nCrEngine:
         assert n > 0, "n must be greater than 0"
         assert lookback > horizon > 0, "Lookback must be greater than horizon and both must be greater than 0"
 
-        with open("NeoPortfolio/INDEX_MAP.json", "r") as f:
+        curr_dir = os.path.dirname(os.path.abspath(__file__))
+        idx_map = curr_dir + "/INDEX_MAP.json"
+        with open(idx_map, "r") as f:
             self.INDEX_MAP = loads(f.read())
 
         if market not in self.INDEX_MAP.keys():
