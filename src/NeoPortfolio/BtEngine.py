@@ -18,6 +18,7 @@ class BtEngine:
                  # Supplementary data for strategies
                  hi_lo: Optional[tuple[pd.DataFrame, pd.DataFrame]] = None,
                  vol: Optional[pd.DataFrame] = None,
+                 horizon: Optional[int] = None
                  ) -> None:
 
         self.history = None
@@ -37,6 +38,7 @@ class BtEngine:
 
         self.sma_period = 16
         self.lma_period = 128
+        self.horizon = horizon or 7
 
         self._iter = self._iterate()
         self.strat = strategy
@@ -46,7 +48,8 @@ class BtEngine:
             'sma': [self._ma, [self.sma_period]],
             'lma': [self._ma, [self.lma_period]],
             'diff': [self._diff, []],
-            'window': [self._get_window, []]
+            'window': [self._get_window, []],
+            'fib_percentile': [self._fib_retracement, [self.horizon]]
         }
 
         self.holdings = {stock: 0 for stock in self.price_data.columns}  # init with 0 holdings
@@ -80,8 +83,22 @@ class BtEngine:
     def _diff(self):
         return self.price_data.diff()
 
+    def _fib_retracement(self, horizon):
+        assert isinstance(self.lo, (pd.DataFrame, pd.Series)) and isinstance(self.hi, (pd.DataFrame, pd.Series)), "Provide Hi/Lo data to use the fib retracement strategy"
+        fib_df = pd.DataFrame()
+        for stock in self.price_data.columns:
+            p = self.price_data[stock]
+            lo = self.lo[stock]
+            hi = self.hi[stock]
+            fib_df[stock] = (p - lo.rolling(horizon).min()) / (hi.rolling(horizon).max() - lo.rolling(horizon).min())
+
+        return fib_df
+
     def _get_window(self):
         return self.sma_period
+
+    def _get_horizon(self):
+        return self.horizon
 
     def _iterate(self) -> Generator[pd.Series, None, None]:
         """Generator that yields the next row of the price data"""
