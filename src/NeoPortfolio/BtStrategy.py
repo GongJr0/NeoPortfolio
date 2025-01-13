@@ -24,8 +24,8 @@ class BtStrategy:
 
         self._signal_scalers = {
             self._crossover: self._no_scale,
-            self._rsi_ma: self._rsi_strength_exp,
-            self._rsi_ewma: self._rsi_strength_exp,
+            self._rsi_ma: self._rsi_strength_log,
+            self._rsi_ewma: self._rsi_strength_log,
             self._fib_retracement: self._fib_magnitude_log,
         }
 

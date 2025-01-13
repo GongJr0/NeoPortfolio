@@ -8,6 +8,7 @@ from contextlib import contextmanager
 
 
 from typing import Optional, Literal, Generator
+import matplotlib.pyplot as plt
 
 
 class BtEngine:
@@ -219,3 +220,73 @@ class BtEngine:
         }
 
         return out
+
+    def plot_history(self):
+        if self.history is None:
+            raise ValueError("No history to plot, call run() before plotting")
+
+        total_value = self.history['portfolio_value'].values
+        cash_equivalent = self.history['cash'].values
+        dt_index = self.dt_index
+
+        def get_signal(_iter, signal: int):
+            sigs = [1 if _iter[0] == signal else 0 for _iter in _iter.values()]
+            return sum(sigs)
+
+        buys = [get_signal(_iter, 1) for _iter in list(self._all_signals.values())]
+        sells = [get_signal(_iter, -1) for _iter in list(self._all_signals.values())]
+
+        fig, ax = plt.subplots(2, 2, figsize=(15, 10))
+
+        # Total Value, liquid value line plot
+        ax[0, 0].plot(dt_index, total_value, label='Total Value')
+        ax[0, 0].plot(dt_index, cash_equivalent, label='Liquid Assets')
+        ax[0, 0].set_title('Portfolio Value')
+        ax[0, 0].set_ylabel('Cash Equivalent ($)')
+        ax[0, 0].set_xlabel('Date')
+        ax[0, 0].grid(True)
+        ax[0, 0].tick_params(axis='x', rotation=45)
+        ax[0, 0].legend()
+
+        sell_ax = ax[0, 1].inset_axes([0.1, 0.1, 0.8, 0.35])  # [x, y, width, height]
+        buy_ax = ax[0, 1].inset_axes([0.1, 0.55, 0.8, 0.35])  # [x, y, width, height]
+
+        # Plot buys and sells in the respective inset axes
+        sell_ax.plot(dt_index, sells, color='red', label=f'Sells')
+        sell_ax.tick_params(axis='x', rotation=45)
+        sell_ax.legend()
+
+        buy_ax.plot(dt_index, buys, color='green', label=f'Buys')
+        buy_ax.set_title('Buy/Sell Signals')
+        buy_ax.tick_params(axis='x', which='both', bottom=False, labelbottom=False)
+        buy_ax.legend()
+
+        pos = ax[0, 1].get_position()
+        # Adjust the position by increasing the bottom margin
+        ax[0, 1].set_position([pos.x0, pos.y0 + 0.1, pos.width, pos.height - 0.1])
+
+        # Optionally, remove the original grid cell's axes for cleaner presentation
+        ax[0, 1].axis('off')  # Optional: to hide the base axes (i.e., ax[0, 1])
+
+        hist_keys = self.history.keys()
+        holding_keys = [key.split("_")[-1] for key in hist_keys if 'holdings' in key]
+
+        for stock in holding_keys:
+            ax[1, 0].plot(dt_index, self.history[f'holdings_{stock}'], label=stock)
+        ax[1, 0].set_title('Stock Holdings')
+        ax[1, 0].set_ylabel('Shares')
+        ax[1, 0].set_xlabel('Date')
+        ax[1, 0].grid(True)
+        ax[1, 0].tick_params(axis='x', rotation=45)
+        ax[1, 0].legend()
+
+        ax[1, 1].plot(dt_index, self.history['profit'])
+        ax[1, 1].set_title('Profit')
+        ax[1, 1].set_ylabel('Profit ($)')
+        ax[1, 1].set_xlabel('Date')
+        ax[1, 1].grid(True)
+        ax[1, 1].tick_params(axis='x', rotation=45)
+
+        # Display the plot
+        plt.tight_layout()
+        plt.show()
