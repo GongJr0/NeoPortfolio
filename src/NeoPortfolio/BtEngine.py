@@ -294,7 +294,7 @@ class BtEngine:
 
         ax[2, 0].plot(dt_index, cumulative_pl, label=f'Cumulative P/L ($)')
         ax[2, 0].set_title('Cumulative P/L')
-        ax[2, 0].set_ylabel('Profit')
+        ax[2, 0].set_ylabel('Profit (%)')
         ax[2, 0].set_xlabel('Date')
         ax[2, 0].grid(True)
         ax[2, 0].tick_params(axis='x', rotation=45)
