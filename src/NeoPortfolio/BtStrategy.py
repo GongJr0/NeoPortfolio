@@ -6,8 +6,9 @@ from typing import Literal
 
 class BtStrategy:
     def __init__(self,
-                 strat: Literal['crossover', 'rsi_ma', 'rsi_ewma', 'fib_retracement']  # More literals will be added as the strategies are implemented
-                 ) -> None:
+                 strat: Literal['crossover', 'rsi_ma', 'rsi_ewma', 'fib_retracement']  # More literals will be added as
+                 ) -> None:                                                             # the strategies are implemented
+
         self.strat = strat
         self._arg_signature = {
             'crossover': ['sma', 'lma'],  # prev averages can be accessed with pd.Series.iloc
@@ -186,17 +187,17 @@ class BtStrategy:
         elif signal == 0:
             return 0
 
-    def _rsi_strength_exp(self, signal: int, score: float) -> float:
+    def _rsi_strength_exp(self, signal: int, score: float, k: int = 3) -> float:
 
         buy = self.rsi_buy_threshold
         sell = self.rsi_sell_threshold
 
         if signal == 1:
-            return np.exp(((buy - score)/buy) - 1) / (np.exp(1) - 1)
+            return (1 - score / buy) ** k
 
         elif signal == -1:
-            return - np.exp(((score - sell)/(100 - sell)) - 1) / (np.exp(1) - 1)
-        
+            return ((score - sell) / (100 - sell)) ** k
+
         elif signal == 0:
             return 0
 

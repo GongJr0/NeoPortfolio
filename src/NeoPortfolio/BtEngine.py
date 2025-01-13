@@ -236,7 +236,11 @@ class BtEngine:
         buys = [get_signal(_iter, 1) for _iter in list(self._all_signals.values())]
         sells = [get_signal(_iter, -1) for _iter in list(self._all_signals.values())]
 
-        fig, ax = plt.subplots(2, 2, figsize=(15, 10))
+        cumulative_pl = ((total_value - 100_000) / 100_000) * 100
+
+        window = self.horizon if self.strat.strat == 'fib_retracement' else self.sma_period
+
+        fig, ax = plt.subplots(3, 2, figsize=(15, 12))
 
         # Total Value, liquid value line plot
         ax[0, 0].plot(dt_index, total_value, label='Total Value')
@@ -273,6 +277,7 @@ class BtEngine:
 
         for stock in holding_keys:
             ax[1, 0].plot(dt_index, self.history[f'holdings_{stock}'], label=stock)
+
         ax[1, 0].set_title('Stock Holdings')
         ax[1, 0].set_ylabel('Shares')
         ax[1, 0].set_xlabel('Date')
@@ -287,6 +292,14 @@ class BtEngine:
         ax[1, 1].grid(True)
         ax[1, 1].tick_params(axis='x', rotation=45)
 
-        # Display the plot
+        ax[2, 0].plot(dt_index, cumulative_pl, label=f'Cumulative P/L ($)')
+        ax[2, 0].set_title('Cumulative P/L')
+        ax[2, 0].set_ylabel('Profit')
+        ax[2, 0].set_xlabel('Date')
+        ax[2, 0].grid(True)
+        ax[2, 0].tick_params(axis='x', rotation=45)
+
+        ax[2, 1].axis('off')
+
         plt.tight_layout()
         plt.show()
