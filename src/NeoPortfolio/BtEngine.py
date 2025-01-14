@@ -10,6 +10,17 @@ from contextlib import contextmanager
 from typing import Optional, Literal, Generator
 import matplotlib.pyplot as plt
 
+from functools import wraps
+
+
+def hilo(method):
+    @wraps(method)
+    def wrapper(self, *args, **kwargs):
+        if self.hi is None or self.lo is None:
+            raise ValueError("Please provide Hi/Lo data to proceed with the selected strategy.")
+        return method(self, *args, **kwargs)
+    return wrapper
+
 
 class BtEngine:
     def __init__(self,
@@ -46,11 +57,25 @@ class BtEngine:
         self._arg_signature = strategy.arg_signature
 
         self._arg_map = {
+            # Crossover
             'sma': [self._ma, [self.sma_period]],
             'lma': [self._ma, [self.lma_period]],
-            'diff': [self._diff, []],
+
+            # RSI MA / RSI EWMA
             'window': [self._get_window, []],
-            'fib_percentile': [self._fib_retracement, [self.horizon]]
+            'diff': [self._diff, []],
+
+            # Fib Retracement
+            'fib_percentile': [self._fib_retracement, [self.horizon]],
+
+            # Ichimoku Cloud
+            'tenkan_sen': [self._tenkan_sen, []],
+            'kijun_sen': [self._kijun_sen, []],
+            'senkou_a': [self._senkou_a, []],
+            'senkou_b': [self._senkou_b, []],
+            'close': [self._get_close, []],
+            'hi': [self._get_hi, []],
+            'lo': [self._get_lo, []]
         }
 
         self.holdings = {stock: 0 for stock in self.price_data.columns}  # init with 0 holdings
@@ -84,8 +109,8 @@ class BtEngine:
     def _diff(self):
         return self.price_data.diff()
 
+    @hilo
     def _fib_retracement(self, horizon):
-        assert isinstance(self.lo, (pd.DataFrame, pd.Series)) and isinstance(self.hi, (pd.DataFrame, pd.Series)), "Provide Hi/Lo data to use the fib retracement strategy"
         fib_df = pd.DataFrame()
         for stock in self.price_data.columns:
             p = self.price_data[stock]
@@ -95,11 +120,46 @@ class BtEngine:
 
         return fib_df
 
+    @hilo
+    def _tenkan_sen(self):
+        out = (self.hi.rolling(window=9).max() + self.lo.rolling(window=9).min()) / 2
+        out.bfill()
+        return out
+
+    @hilo
+    def _kijun_sen(self):
+        out = (self.hi.rolling(window=26).max() + self.lo.rolling(window=26).min()) / 2
+        out.bfill()
+        return out
+
+    @hilo
+    def _senkou_a(self):
+        kijun_sen = self._kijun_sen()
+        tenkan_sen = self._tenkan_sen()
+        out = ((kijun_sen + tenkan_sen) / 2).shift(26)
+        out.bfill()
+        return out
+
+    @hilo
+    def _senkou_b(self):
+        out = (self.hi.rolling(window=52).max() + self.lo.rolling(window=52).min()) / 2
+        out.bfill()
+        return out
+
     def _get_window(self):
         return self.sma_period
 
     def _get_horizon(self):
         return self.horizon
+
+    def _get_close(self):
+        return self.price_data
+
+    def _get_hi(self):
+        return self.hi
+
+    def _get_lo(self):
+        return self.lo
 
     def _iterate(self) -> Generator[pd.Series, None, None]:
         """Generator that yields the next row of the price data"""
@@ -128,7 +188,7 @@ class BtEngine:
                stock_price: float,
                signal: Literal[-1, 0, 1],
                signal_strength: float) -> None:
-        if any([pd.isna(signal), pd.isna(stock_price), pd.isna(signal_strength)]):
+        if pd.isna(signal) or pd.isna(stock_price) or pd.isna(signal_strength):
             return
 
         if signal == 1:
