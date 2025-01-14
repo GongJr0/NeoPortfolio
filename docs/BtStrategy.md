@@ -36,12 +36,13 @@ Fibonacci Retracement is a strategy relying on drawing brackets between the high
 brackets are defined as percentiles in the $[Lo_{i-t:i}, Hi_{i-t:i}]$ range and the levels are drawn from the Fibonacci
 sequence. ($FibLevels = \{0.236, 0.382, 0.618, 0.786\}$) Signals are generated as follows:
 
-$$\mathrm{FibSignal}(P_i)=
+$$
+\mathrm{FibSignal}(P_i) =
 \begin{cases}
-Buy & \text{if} \ P_i \leq P_{38.2%} \\
-Hold & \text{if} \ P_i \in (P_{38.2%}, \ P_{61.8%}) \\
-Sell & \text{if} \ P_i \geq P_{61.8%}
-\end{cases]
+\text{Buy} & \text{if } P_i \leq P_{38.2\text{&#37;}} \\
+\text{Hold} & \text{if } P_i \in (P_{38.2\text{&#37;}}, \ P_{61.8\text{&#37;}}) \\
+\text{Sell} & \text{if } P_i \geq P_{61.8\text{&#37;}}
+\end{cases}
 $$
 
 Similar to RSI, signal magnitude is achieved by mapping calculated Fib percentile of the current price to range $[0, 1]$
@@ -69,7 +70,7 @@ $$\mathrm{Ichimoku} =
 Buy & \text{if} \ \text{Tenkan-sen > Kijun-sen} \text{ and} P_i > \max (Senkou_A, \ Senkou_B)
 Sell & \text{if} \ \text{Tenkan-sen < Kijun-sen} \text{ and} P_i < \min (Senkou_A, \ Senkou_B)
 Hold & \text{if} \ \text{Any other outcome}
-\end{cases]
+\end{cases}
 $$
 
 Ichimoku cloud signals do not generate scores with known bounds or midpoints, making signal scaling
