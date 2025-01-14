@@ -30,6 +30,17 @@ to test the performance of a portfolio when actively trading.
 
 ## Methods
 
+### `set_holdings`
+Method to set holdings using portfolio weights before the run.
+
+__Params:__
+- `weights -> dict[str, float]`: `dict` of stock symbols and their weights
+- `inv_percent -> float`: percentage of starting cash balance to invest in the portfolio
+
+__Returns:__
+
+- None 
+
 ### `run`
 Run the engine to perform iterative backtesting with the pre-determined strategy
 

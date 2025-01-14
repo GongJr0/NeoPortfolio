@@ -90,6 +90,15 @@ class BtEngine:
         self.raw_signals = {}
         self.cash_history = {}
 
+    def set_holdings(self, weights: dict, inv_percent: float):
+        assert np.isclose(sum(weights.values()), 1.0), "Please ensure the sum of portfolio weights returns true for. np.isclose(sum(weights.values()), 1.0)"
+        assert 0.0 <= inv_percent <= 1.0, "Investment percent must be between 0.0 and 1.0"
+
+        for stock, weight in weights.items():
+            self.holdings[stock] = (weight * inv_percent * self.cash) / self.price_data[stock].iloc[0]
+        self.cash -= self.cash * inv_percent
+
+
     @staticmethod
     def _arg_indexer(arg, loc):
         if isinstance(arg, pd.DataFrame):
