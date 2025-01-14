@@ -40,3 +40,13 @@ __Returns:__
 
 - `dict[str, float | dict]`: dict containing post-run portfolio value in USD, total liquid assets,
 and asset distribution as a dict of stocks and their respective holdings at the end of the run.
+
+### `plot_history`
+Display a `matplotlib.pyplot` figure that contains key information regarding the performance of the selected
+backtesting strategy and portfolio.
+
+__Params:__
+- None
+
+__Returns:__
+- None
