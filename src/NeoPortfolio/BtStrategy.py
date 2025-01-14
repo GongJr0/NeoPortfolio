@@ -164,8 +164,20 @@ class BtStrategy:
     def _ichimoku_scale(signal: int,
                         params: tuple[float, float, float, float, float, float, float]
                         ) -> float:
-        ...
-        return 1
+        tenkan_sen, kijun_sen, senkou_a, senkou_b, close, hi, lo = params
+        if signal == 1:
+            bound = senkou_a
+        elif signal == -1:
+            bound = senkou_b
+        else:
+            return 0
+
+        hi_lo_range = hi-lo
+        p_to_cloud = abs(close-bound)  # Absolute gap as sell signals will flip the sign of this operation
+
+        mag = p_to_cloud/hi_lo_range
+
+        return np.clip(mag, 0, 1)
 
     @staticmethod
     def _fib_magnitude_lin(signal: int, level: float) -> float:
