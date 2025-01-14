@@ -131,6 +131,10 @@ class BtStrategy:
             return 0, percent
 
     @staticmethod
+    def _no_scale(signal: int, score: float) -> float:
+        return 1
+
+    @staticmethod
     def _fib_magnitude_lin(signal: int, level: float) -> float:
         fib_buy = 0.382
         fib_sell = 0.618
@@ -167,10 +171,6 @@ class BtStrategy:
         elif signal == -1:
             return 1 / (1 + np.exp(-k * (level - sell_mid)))
         return 0
-
-    @staticmethod
-    def _no_scale(signal: int, score: float) -> float:
-        return 1
 
     def _rsi_strength_lin(self, signal: int, score: float) -> float:
 
