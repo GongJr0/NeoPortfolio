@@ -8,6 +8,18 @@ from contextlib import contextmanager
 
 
 from typing import Optional, Literal, Generator
+import matplotlib.pyplot as plt
+
+from functools import wraps
+
+
+def hilo(method):
+    @wraps(method)
+    def wrapper(self, *args, **kwargs):
+        if self.hi is None or self.lo is None:
+            raise ValueError("Please provide Hi/Lo data to proceed with the selected strategy.")
+        return method(self, *args, **kwargs)
+    return wrapper
 
 
 class BtEngine:
@@ -45,11 +57,25 @@ class BtEngine:
         self._arg_signature = strategy.arg_signature
 
         self._arg_map = {
+            # Crossover
             'sma': [self._ma, [self.sma_period]],
             'lma': [self._ma, [self.lma_period]],
-            'diff': [self._diff, []],
+
+            # RSI MA / RSI EWMA
             'window': [self._get_window, []],
-            'fib_percentile': [self._fib_retracement, [self.horizon]]
+            'diff': [self._diff, []],
+
+            # Fib Retracement
+            'fib_percentile': [self._fib_retracement, [self.horizon]],
+
+            # Ichimoku Cloud
+            'tenkan_sen': [self._tenkan_sen, []],
+            'kijun_sen': [self._kijun_sen, []],
+            'senkou_a': [self._senkou_a, []],
+            'senkou_b': [self._senkou_b, []],
+            'close': [self._get_close, []],
+            'hi': [self._get_hi, []],
+            'lo': [self._get_lo, []]
         }
 
         self.holdings = {stock: 0 for stock in self.price_data.columns}  # init with 0 holdings
@@ -63,6 +89,15 @@ class BtEngine:
 
         self.raw_signals = {}
         self.cash_history = {}
+
+    def set_holdings(self, weights: dict, inv_percent: float):
+        assert np.isclose(sum(weights.values()), 1.0), "Please ensure the sum of portfolio weights returns true for. np.isclose(sum(weights.values()), 1.0)"
+        assert 0.0 <= inv_percent <= 1.0, "Investment percent must be between 0.0 and 1.0"
+
+        for stock, weight in weights.items():
+            self.holdings[stock] = (weight * inv_percent * self.cash) / self.price_data[stock].iloc[0]
+        self.cash -= self.cash * inv_percent
+
 
     @staticmethod
     def _arg_indexer(arg, loc):
@@ -83,8 +118,8 @@ class BtEngine:
     def _diff(self):
         return self.price_data.diff()
 
+    @hilo
     def _fib_retracement(self, horizon):
-        assert isinstance(self.lo, (pd.DataFrame, pd.Series)) and isinstance(self.hi, (pd.DataFrame, pd.Series)), "Provide Hi/Lo data to use the fib retracement strategy"
         fib_df = pd.DataFrame()
         for stock in self.price_data.columns:
             p = self.price_data[stock]
@@ -94,11 +129,46 @@ class BtEngine:
 
         return fib_df
 
+    @hilo
+    def _tenkan_sen(self):
+        out = (self.hi.rolling(window=9).max() + self.lo.rolling(window=9).min()) / 2
+        out.bfill()
+        return out
+
+    @hilo
+    def _kijun_sen(self):
+        out = (self.hi.rolling(window=26).max() + self.lo.rolling(window=26).min()) / 2
+        out.bfill()
+        return out
+
+    @hilo
+    def _senkou_a(self):
+        kijun_sen = self._kijun_sen()
+        tenkan_sen = self._tenkan_sen()
+        out = ((kijun_sen + tenkan_sen) / 2).shift(26)
+        out.bfill()
+        return out
+
+    @hilo
+    def _senkou_b(self):
+        out = (self.hi.rolling(window=52).max() + self.lo.rolling(window=52).min()) / 2
+        out.bfill()
+        return out
+
     def _get_window(self):
         return self.sma_period
 
     def _get_horizon(self):
         return self.horizon
+
+    def _get_close(self):
+        return self.price_data
+
+    def _get_hi(self):
+        return self.hi
+
+    def _get_lo(self):
+        return self.lo
 
     def _iterate(self) -> Generator[pd.Series, None, None]:
         """Generator that yields the next row of the price data"""
@@ -127,7 +197,7 @@ class BtEngine:
                stock_price: float,
                signal: Literal[-1, 0, 1],
                signal_strength: float) -> None:
-        if any([pd.isna(signal), pd.isna(stock_price), pd.isna(signal_strength)]):
+        if pd.isna(signal) or pd.isna(stock_price) or pd.isna(signal_strength):
             return
 
         if signal == 1:
@@ -219,3 +289,86 @@ class BtEngine:
         }
 
         return out
+
+    def plot_history(self):
+        if self.history is None:
+            raise ValueError("No history to plot, call run() before plotting")
+
+        total_value = self.history['portfolio_value'].values
+        cash_equivalent = self.history['cash'].values
+        dt_index = self.dt_index
+
+        def get_signal(_iter, signal: int):
+            sigs = [1 if _iter[0] == signal else 0 for _iter in _iter.values()]
+            return sum(sigs)
+
+        buys = [get_signal(_iter, 1) for _iter in list(self._all_signals.values())]
+        sells = [get_signal(_iter, -1) for _iter in list(self._all_signals.values())]
+
+        cumulative_pl = ((total_value - 100_000) / 100_000) * 100
+
+        window = self.horizon if self.strat.strat == 'fib_retracement' else self.sma_period
+
+        fig, ax = plt.subplots(3, 2, figsize=(15, 12))
+
+        # Total Value, liquid value line plot
+        ax[0, 0].plot(dt_index, total_value, label='Total Value')
+        ax[0, 0].plot(dt_index, cash_equivalent, label='Liquid Assets')
+        ax[0, 0].set_title('Portfolio Value')
+        ax[0, 0].set_ylabel('Cash Equivalent ($)')
+        ax[0, 0].set_xlabel('Date')
+        ax[0, 0].grid(True)
+        ax[0, 0].tick_params(axis='x', rotation=45)
+        ax[0, 0].legend()
+
+        sell_ax = ax[0, 1].inset_axes([0.1, 0.1, 0.8, 0.35])  # [x, y, width, height]
+        buy_ax = ax[0, 1].inset_axes([0.1, 0.55, 0.8, 0.35])  # [x, y, width, height]
+
+        # Plot buys and sells in the respective inset axes
+        sell_ax.plot(dt_index, sells, color='red', label=f'Sells')
+        sell_ax.tick_params(axis='x', rotation=45)
+        sell_ax.legend()
+
+        buy_ax.plot(dt_index, buys, color='green', label=f'Buys')
+        buy_ax.set_title('Buy/Sell Signals')
+        buy_ax.tick_params(axis='x', which='both', bottom=False, labelbottom=False)
+        buy_ax.legend()
+
+        pos = ax[0, 1].get_position()
+        # Adjust the position by increasing the bottom margin
+        ax[0, 1].set_position([pos.x0, pos.y0 + 0.1, pos.width, pos.height - 0.1])
+
+        # Optionally, remove the original grid cell's axes for cleaner presentation
+        ax[0, 1].axis('off')  # Optional: to hide the base axes (i.e., ax[0, 1])
+
+        hist_keys = self.history.keys()
+        holding_keys = [key.split("_")[-1] for key in hist_keys if 'holdings' in key]
+
+        for stock in holding_keys:
+            ax[1, 0].plot(dt_index, self.history[f'holdings_{stock}'], label=stock)
+
+        ax[1, 0].set_title('Stock Holdings')
+        ax[1, 0].set_ylabel('Shares')
+        ax[1, 0].set_xlabel('Date')
+        ax[1, 0].grid(True)
+        ax[1, 0].tick_params(axis='x', rotation=45)
+        ax[1, 0].legend()
+
+        ax[1, 1].plot(dt_index, self.history['profit'])
+        ax[1, 1].set_title('Profit')
+        ax[1, 1].set_ylabel('Profit ($)')
+        ax[1, 1].set_xlabel('Date')
+        ax[1, 1].grid(True)
+        ax[1, 1].tick_params(axis='x', rotation=45)
+
+        ax[2, 0].plot(dt_index, cumulative_pl, label=f'Cumulative P/L ($)')
+        ax[2, 0].set_title('Cumulative P/L')
+        ax[2, 0].set_ylabel('Profit (%)')
+        ax[2, 0].set_xlabel('Date')
+        ax[2, 0].grid(True)
+        ax[2, 0].tick_params(axis='x', rotation=45)
+
+        ax[2, 1].axis('off')
+
+        plt.tight_layout()
+        plt.show()

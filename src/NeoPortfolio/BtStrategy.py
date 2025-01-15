@@ -6,27 +6,31 @@ from typing import Literal
 
 class BtStrategy:
     def __init__(self,
-                 strat: Literal['crossover', 'rsi_ma', 'rsi_ewma', 'fib_retracement']  # More literals will be added as the strategies are implemented
+                 strat: Literal['crossover', 'rsi_ma', 'rsi_ewma', 'fib_retracement', 'ichimoku_cloud']
                  ) -> None:
+
         self.strat = strat
         self._arg_signature = {
             'crossover': ['sma', 'lma'],  # prev averages can be accessed with pd.Series.iloc
             'rsi_ma': ['diff', 'window'],
             'rsi_ewma': ['diff', 'window'],
-            'fib_retracement': ['fib_percentile']
+            'fib_retracement': ['fib_percentile'],
+            'ichimoku_cloud': ['tenkan_sen', 'kijun_sen', 'senkou_a', 'senkou_b', 'close', 'hi', 'lo']
         }
         self._func_map = {
             'crossover': self._crossover,
             'rsi_ma': self._rsi_ma,
             'rsi_ewma': self._rsi_ewma,
-            'fib_retracement': self._fib_retracement
+            'fib_retracement': self._fib_retracement,
+            'ichimoku_cloud': self._ichimoku_cloud
         }
 
         self._signal_scalers = {
             self._crossover: self._no_scale,
-            self._rsi_ma: self._rsi_strength_exp,
-            self._rsi_ewma: self._rsi_strength_exp,
+            self._rsi_ma: self._rsi_strength_log,
+            self._rsi_ewma: self._rsi_strength_log,
             self._fib_retracement: self._fib_magnitude_log,
+            self._ichimoku_cloud: self._ichimoku_scale
         }
 
         self.objective = self._func_map[self.strat]
@@ -131,8 +135,54 @@ class BtStrategy:
             return 0, percent
 
     @staticmethod
+    def _ichimoku_cloud(tenkan_sen: pd.Series,
+                        kijun_sen: pd.Series,
+                        senkou_a: pd.Series,
+                        senkou_b: pd.Series,
+                        close: pd.Series,
+                        hi: pd.Series,
+                        lo: pd.Series,
+                        *,
+                        index: int
+                        ) -> tuple[int, tuple]:
+        close = close.iloc[index]
+        tenkan_sen = tenkan_sen.iloc[index]
+        kijun_sen = kijun_sen.iloc[index]
+        senkou_a = senkou_a.iloc[index]
+        senkou_b = senkou_b.iloc[index]
+        hi = hi.iloc[index]
+        lo = lo.iloc[index]
+
+        if close > senkou_a and close > senkou_b:
+            return 1, (tenkan_sen, kijun_sen, senkou_a, senkou_b, close, hi, lo)
+        elif close < senkou_a and close < senkou_b:
+            return -1, (tenkan_sen, kijun_sen, senkou_a, senkou_b, close, hi, lo)
+        else:
+            return 0, (tenkan_sen, kijun_sen, senkou_a, senkou_b, close, hi, lo)
+
+    @staticmethod
+    def _ichimoku_scale(signal: int,
+                        params: tuple[float, float, float, float, float, float, float]
+                        ) -> float:
+        tenkan_sen, kijun_sen, senkou_a, senkou_b, close, hi, lo = params
+        if signal == 1:
+            bound = senkou_a
+        elif signal == -1:
+            bound = senkou_b
+        else:
+            return 0
+
+        hi_lo_range = hi-lo
+        p_to_cloud = abs(close-bound)  # Absolute gap as sell signals will flip the sign of this operation
+
+        mag = p_to_cloud/hi_lo_range
+
+        return np.clip(mag, 0, 1)
+      
+    @staticmethod
     def _no_scale(signal: int, score: float) -> float:
         return 1
+
 
     @staticmethod
     def _fib_magnitude_lin(signal: int, level: float) -> float:
@@ -186,17 +236,17 @@ class BtStrategy:
         elif signal == 0:
             return 0
 
-    def _rsi_strength_exp(self, signal: int, score: float) -> float:
+    def _rsi_strength_exp(self, signal: int, score: float, k: int = 3) -> float:
 
         buy = self.rsi_buy_threshold
         sell = self.rsi_sell_threshold
 
         if signal == 1:
-            return np.exp(((buy - score)/buy) - 1) / (np.exp(1) - 1)
+            return (1 - score / buy) ** k
 
         elif signal == -1:
-            return - np.exp(((score - sell)/(100 - sell)) - 1) / (np.exp(1) - 1)
-        
+            return ((score - sell) / (100 - sell)) ** k
+
         elif signal == 0:
             return 0
 

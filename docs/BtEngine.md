@@ -30,6 +30,17 @@ to test the performance of a portfolio when actively trading.
 
 ## Methods
 
+### `set_holdings`
+Method to set holdings using portfolio weights before the run.
+
+__Params:__
+- `weights -> dict[str, float]`: `dict` of stock symbols and their weights
+- `inv_percent -> float`: percentage of starting cash balance to invest in the portfolio
+
+__Returns:__
+
+- None 
+
 ### `run`
 Run the engine to perform iterative backtesting with the pre-determined strategy
 
@@ -40,3 +51,13 @@ __Returns:__
 
 - `dict[str, float | dict]`: dict containing post-run portfolio value in USD, total liquid assets,
 and asset distribution as a dict of stocks and their respective holdings at the end of the run.
+
+### `plot_history`
+Display a `matplotlib.pyplot` figure that contains key information regarding the performance of the selected
+backtesting strategy and portfolio.
+
+__Params:__
+- None
+
+__Returns:__
+- None
