@@ -178,6 +178,11 @@ class BtStrategy:
         mag = p_to_cloud/hi_lo_range
 
         return np.clip(mag, 0, 1)
+      
+    @staticmethod
+    def _no_scale(signal: int, score: float) -> float:
+        return 1
+
 
     @staticmethod
     def _fib_magnitude_lin(signal: int, level: float) -> float:
@@ -216,10 +221,6 @@ class BtStrategy:
         elif signal == -1:
             return 1 / (1 + np.exp(-k * (level - sell_mid)))
         return 0
-
-    @staticmethod
-    def _no_scale(signal: int, score: float) -> float:
-        return 1
 
     def _rsi_strength_lin(self, signal: int, score: float) -> float:
 
