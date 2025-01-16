@@ -94,17 +94,17 @@ if (is_top_frame) { $('body').addClass('wm-top-page'); }
 <p>NeoPortfolio offers optimization tools for pre-determined portfolios a search tool to find the
 optimal portfolio from an index's constituents.</p>
 <h2 id="mpt-optimization-for-pre-determined-portfolio">MPT Optimization for Pre-Determined Portfolio</h2>
-<pre><code class="language-python">from NeoPortfolio import Portfolio, Markowitz
+<pre><code class="language-python">from src.NeoPortfolio import Portfolio, Markowitz
 
 # Create a portfolio object and pass it to the Markowitz class
 portfolio = Portfolio(['AAPL', 'MSFT', 'GOOGL', 'AMZN', 'TSLA'])
 markowitz = Markowitz(
     portfolio=portfolio,
     market='^GSPC',  # S&amp;P 500
-    horizon= 21,
+    horizon=21,
     lookback=252,
-    rf_rate_pa=None, # Use 10-Year US Treasury yield if None
-    api_key_path='path/to/api_key.env', # NewsAPI key
+    rf_rate_pa=None,  # Use 10-Year US Treasury yield if None
+    api_key_path='path/to/api_key.env',  # NewsAPI key
     api_key_var='YOUR_VAR_NAME'
 )
 
@@ -118,7 +118,7 @@ print(weights)
 markowitz.efficient_frontier('return', n=500)
 </code></pre>
 <h2 id="automatic-portfolio-selection">Automatic Portfolio Selection</h2>
-<pre><code class="language-python">from NeoPortfolio import nCrOptimize
+<pre><code class="language-python">from src.NeoPortfolio import nCrOptimize
 
 ncr = nCrOptimize(
     market='^GSPC',  # S&amp;P 500
@@ -126,7 +126,7 @@ ncr = nCrOptimize(
     target_return=0.05,
     horizon=21,
     lookback=252,
-    api_key_path='path/to/api_key.env', # NewsAPI key
+    api_key_path='path/to/api_key.env',  # NewsAPI key
     api_key_var='YOUR_VAR_NAME'
 )
 

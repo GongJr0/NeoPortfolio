@@ -33,6 +33,7 @@
         
         var pageToc = [
           {title: "BtStrategy", url: "#_top", children: [
+              {title: "Available Strategies", url: "#available-strategies" },
               {title: "__init__ Arguments", url: "#__init__-arguments" },
               {title: "Attributes", url: "#attributes" },
               {title: "Methods", url: "#methods" },
@@ -55,34 +56,108 @@ if (is_top_frame) { $('body').addClass('wm-top-page'); }
     
 
     
-    
-      
-    
-
-  <div class="row wm-article-nav-buttons" role="navigation" aria-label="navigation">
-    
-    <div class="wm-article-nav">
-      <a href="../BtEngine/" class="btn btn-xs btn-default pull-left">
-        <i class="fa fa-chevron-left" aria-hidden="true"></i>
-        Previous</a><a href="../BtEngine/" class="btn btn-xs btn-link">
-        BtEngine
-      </a>
-    </div>
-    
-  </div>
-
-    
 
     <h1 id="btstrategy"><code>BtStrategy</code></h1>
 <p><code>BtStrategy</code> is a strategy container developed for use inside a <code>BtEngine</code> object. It defines trading strategies 
 and outputs scores based on the input data, selected strategy, and configurable thresholds.</p>
+<h2 id="available-strategies">Available Strategies</h2>
+<h3 id="crossover">Crossover</h3>
+<p>Crossover is a strategy where two moving averages of close prices compared. The Short Moving Average (SMA) is used to capture
+recent trends in price changes while the Long Moving Average (LMA) records the long-term movement of the close price.</p>
+<p>Crossover generates a buy or sell signal when a change in the price movement trend is detected. The trend comparison
+is made by comparing the SMA and LMA of the current period to the previous one in a relational setting:</p>
+<ul>
+<li><strong>Buy Signal:</strong> <span class="math">$SMA_i \geq LMA_i \ \text{and } SMA_{i-1} \leq LMA_{i-1}$</span> (On periods where SMA crosses over LMA)</li>
+<li><strong>Sell Signal:</strong> <span class="math">$SMA_i \leq LMA_i \ \text{and } SMA_{i-1} \geq LMA_{i-1}$</span> (On periods where LMA crosses over SMA)</li>
+</ul>
+<p>Hence, the strategy is named "Crossover" in reference to the relations it aims to capture. Signal magnitude is not 
+measured in this strategy and all trades will be made with <code>BtEngine.max_trade_proportion</code> (0.33) of the asset traded.</p>
+<h3 id="relative-strength-index">Relative Strength Index</h3>
+<p>Relative Strength Index (RSI) is a common strategy that, again, takes moving averages as its basis. However, RSI relies
+on the average change of close prices instead of the absolute price. Relative Strength (RS) is calculated and scaled to 
+the range <span class="math">$[0, 100]$</span> to get the RSI score. RS and its rescaling is done as follows:</p>
+<p>
+<div class="math">$$RS=\frac{\text{Average Gains}}{\text{Average Losses}}$$</div>
+</p>
+<p>
+<div class="math">$$RSI = 100-\frac{100}{1+RS}$$</div>
+</p>
+<p>Where <span class="math">$\text{Average Gains}$</span> and <span class="math">$\text{Average Losses}$</span> are the moving averages of positive and negative changes in price
+respectively. A buy signal is typically produced when <span class="math">$RSI \leq 30$</span> and a sell is often placed at <span class="math">$RSI \geq 70$</span>.
+<code>BtStrategy</code> offers <strong>Linear, Exponential, and Logistic Scaling</strong> for RSI strategies with Logistic Scaling being the default
+and best performing option. (per our testing)</p>
+<h3 id="fibonacci-retracement">Fibonacci Retracement</h3>
+<p>Fibonacci Retracement is a strategy relying on drawing brackets between the high and low prices from a period
+brackets are defined as percentiles in the <span class="math">$[Lo_{i-t:i}, Hi_{i-t:i}]$</span> range and the levels are drawn from the Fibonacci
+sequence. (<span class="math">$FibLevels = {0.236, 0.382, 0.618, 0.786}$</span>) Signals are generated as follows:</p>
+<p>
+<div class="math">$$
+\mathrm{FibSignal}(P_i) =
+\begin{cases}
+\text{Buy} &amp; \text{if } P_i \leq P_{38.2\text{&#37;}} \
+\text{Hold} &amp; \text{if } P_i \in (P_{38.2\text{&#37;}}, \ P_{61.8\text{&#37;}}) \
+\text{Sell} &amp; \text{if } P_i \geq P_{61.8\text{&#37;}}
+\end{cases}
+$$</div>
+</p>
+<p>Similar to RSI, signal magnitude is achieved by mapping calculated Fib percentile of the current price to range <span class="math">$[0, 1]$</span>
+using on of the <strong>Linear, Exponential, and Logistic Scaling</strong> functions implemented. Again, the default and best
+performing function is determined to be the Logistic Scaling. (per our testing)</p>
+<h3 id="ichimoku-cloud">Ichimoku Cloud</h3>
+<p>Ichimoku Cloud is a strategy built on the moving averages of the range between high and low prices. Having the base 
+formula:</p>
+<p>
+<div class="math">$$\mathrm{Span}(t) = \frac{Hi_{i-t: t} - Lo_{i-t: t}}{2}$$</div>
+</p>
+<p>Multiple moving averages are calculated with differing inputs as <span class="math">$t$</span>.</p>
+<ul>
+<li><strong>Tenkan-sen (<span class="math"><span class="math">$=\mathrm{Span}(9)$</span></span>):</strong> Captures the average range in the shortest rolling window</li>
+<li><strong>Kijun-sen (<span class="math"><span class="math">$=\mathrm{Span}(26)$</span></span>):</strong> Captures the average range in the mid-range rolling window</li>
+<li><strong>Senkou Span B (<span class="math"><span class="math">$=\mathrm{Line}(52)$</span></span>):</strong> Captures the average range in the longest rolling window</li>
+<li><strong>Senkou Span A (<span class="math"><span class="math">$\frac{\text{Tenkan-sen} + \text{Kijun-sen}}{2}$</span></span>):</strong> Captures the range between short and medium 
+rolling spans</li>
+</ul>
+<p>Signals are generated as follows:</p>
+<p>
+<div class="math">$$\mathrm{Ichimoku} =
+\begin{cases}
+Buy &amp; \text{if} \ \text{Tenkan-sen &gt; Kijun-sen} \text{ and} P_i &gt; \max (Senkou_A, \ Senkou_B)
+Sell &amp; \text{if} \ \text{Tenkan-sen &lt; Kijun-sen} \text{ and} P_i &lt; \min (Senkou_A, \ Senkou_B)
+Hold &amp; \text{if} \ \text{Any other outcome}
+\end{cases}
+$$</div>
+</p>
+<p>Ichimoku cloud signals do not generate scores with known bounds or midpoints, making signal scaling
+difficult. The approach taken in generating a signal magnitude for this strategy relies on clipping the final
+output to the range <span class="math">$[0, 1]$</span> with the assumption that magnitudes over 1 indicate a significantly strong signal
+and magnitudes less than 0 similarly indicate a significantly weak signal.</p>
+<p>Scaling is handled by the following functions:</p>
+<p>
+<div class="math">$$\mathrm{CloudBoundary} = 
+\begin{cases}
+Senkou_A &amp; \text{if } \ Signal = 1 \
+Senkou_B &amp; \text{if } \ Signal = -1
+\end{cases}$$</div>
+</p>
+<p>
+<div class="math">$$\text{Raw Magnitude} = \frac{|P_i - CloudBoundary|}{Hi_i - Lo_i}$$</div>
+</p>
+<p>
+<div class="math">$$Magnitude = 
+\begin{cases}
+1 &amp; \text{if } \ \text{Raw Magnitude} \geq 1 \
+\text{Raw Magnitude} &amp; \text{if } \ \text{Raw Magnitude} \in (0, 1) \
+0 &amp; \text{if } \ \text{Raw Magnitude} \leq 0
+\end{cases}$$</div>
+</p>
 <h2 id="__init__-arguments"><code>__init__</code> Arguments</h2>
 <ul>
-<li><code>strat: Literal['crossover', 'rsi_ma', 'rsi_ewma']</code>: strategy to use when running a backtest</li>
+<li><code>strat: Literal['crossover', 'rsi_ma', 'rsi_ewma', 'fib_retracement', 'ichimoku_cloud']</code>: strategy to use when running 
+a backtest</li>
 </ul>
 <h2 id="attributes">Attributes</h2>
 <ul>
-<li><code>strat -&gt; str</code>: strategy to use on backtesting</li>
+<li><code>strat -&gt; str</code>: Strategy to use on backtesting</li>
 <li><code>signal_scaler -&gt; Callable</code>: Signal magnitude mapper function to use depending on the selected strategy</li>
 <li><code>buy_threshold -&gt; int</code>: Buying signal threshold for RSI strategies</li>
 <li><code>sell_threshold -&gt; int</code>: Selling signal threshold for RSI strategies</li>
@@ -95,26 +170,24 @@ keep a uniform range of signal generation space on both ends of RSI.</p>
 - <code>threshold: int</code>: threshold to determine buying and selling regions</p>
 <p><strong>Returns:</strong>
 - None</p>
+<script>
+window.MathJax = {
+  tex: {
+    inlineMath: [['$', '$'], ['\\(', '\\)']],
+    displayMath: [["$$", "$$"], ['\\[', '\\]']],
+    packages: {
+      '[+]': ['mhchem']
+    }
+  },
+  loader: {
+    load: ['[tex]/mhchem']
+  },
+}
+</script>
+<script id="MathJax-script" src="https://cdn.jsdelivr.net/npm/mathjax@3.2.0/es5/tex-mml-chtml.js"></script>
 
   <br>
     
-
-    
-    
-      
-    
-
-  <div class="row wm-article-nav-buttons" role="navigation" aria-label="navigation">
-    
-    <div class="wm-article-nav">
-      <a href="../BtEngine/" class="btn btn-xs btn-default pull-left">
-        <i class="fa fa-chevron-left" aria-hidden="true"></i>
-        Previous</a><a href="../BtEngine/" class="btn btn-xs btn-link">
-        BtEngine
-      </a>
-    </div>
-    
-  </div>
 
     <br>
 </div>
