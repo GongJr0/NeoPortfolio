@@ -6,11 +6,11 @@ numpy==1.24.3
 pandas==2.0.2
 plotly==5.24.1
 python-dotenv==1.2.2
-requests==2.32.3
+requests==2.33.0
 requests-cache==1.2.1
 scikit_learn==1.2.2
 scipy==1.15.0
-torch==2.7.0
+torch==2.12.1
 tqdm==4.66.3
-transformers==4.53.0
+transformers==5.5.0
 yfinance==0.2.33
